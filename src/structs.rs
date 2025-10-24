@@ -61,7 +61,7 @@ impl FileFormat {
 /// Holds the list of files (with detected format) for the supplied input.
 pub struct RustyCov<'a> {
     /// `None` → no input processed yet; `Some(vec)` → list of files.
-    pub files: Option<Vec<(PathBuf, FileFormat)>>,
+    pub files: Option<Vec<PathBuf>>,
     pub deps: Option<DependencyPaths>,
     pub cov_address: Option<&'a str>,
 }
@@ -93,14 +93,14 @@ impl<'a> RustyCov<'a> {
                     .filter_map(|entry| {
                         let p = entry.path().to_path_buf();
                         let fmt = FileFormat::from_path(&p);
-                        if fmt.is_known() { Some((p, fmt)) } else { None }
+                        if fmt.is_known() { Some(p) } else { None }
                     }),
             );
         } else if path.is_file() {
             // Single file case – keep it only if it matches a known format.
             let fmt = FileFormat::from_path(&path);
             if fmt.is_known() {
-                collected.push((path, fmt));
+                collected.push((path));
             }
         } else {
             eprintln!("❌ Path '{}' does not exist.", path_str);

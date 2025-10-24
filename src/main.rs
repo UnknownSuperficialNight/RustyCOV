@@ -2,7 +2,8 @@ mod deps_download;
 mod helpers;
 mod lofty;
 mod structs;
-
+use std::collections::HashMap;
+use std::thread::{JoinHandle, spawn};
 use std::{path::PathBuf, process::Command};
 
 use clap::{Arg, command};
@@ -54,13 +55,16 @@ fn main() {
         return;
     }
 
-    match &rusty_cov_global.files {
-        Some(list) if !list.is_empty() => {
-            for (path, fmt) in list {
+    // Store handles so we can wait for them later
+    let mut handles: HashMap<usize, JoinHandle<()>> = HashMap::new();
+
+    match rusty_cov_global.files {
+        Some(mut list) if !list.is_empty() => {
+            for (job_id, path) in list.drain(..).enumerate() {
                 if let Some(picked) = run_covit(
                     rusty_cov_global.deps.as_ref().unwrap().covit.as_str(),
                     rusty_cov_global.cov_address.unwrap(),
-                    path,
+                    &path,
                 ) {
                     println!(
                         "Artist: {}\nTitle: {}\nDate: {}\nCover Type: {}\nImage Size: {} bytes\nDimensions: {}x{}\nBig Cover URL: {}\n",
@@ -74,10 +78,13 @@ fn main() {
                         picked.bigCoverUrl
                     );
 
-                    // Embed the cover image
-                    if let Err(e) = embed_cover_image(path, &picked.bigCoverUrl) {
-                        eprintln!("Failed to embed cover: {}", e);
-                    }
+                    let handle = spawn(move || {
+                        // Embed the cover image
+                        if let Err(e) = embed_cover_image(path, &picked.bigCoverUrl) {
+                            eprintln!("Failed to embed cover: {}", e);
+                        }
+                    });
+                    handles.insert(job_id, handle);
                 } else {
                     println!("No cover info found for {:?}", path);
                 }
@@ -85,6 +92,19 @@ fn main() {
         }
         _ => eprintln!("No files were found or the input was invalid."),
     }
+
+    let mut completed = 0usize;
+
+    for (job_id, handle) in handles {
+        match handle.join() {
+            Ok(_) => {
+                completed += 1;
+            }
+            Err(panic) => eprintln!("Job {} panicked: {:?}", job_id, panic),
+        }
+    }
+
+    println!("Summary: {} job(s) finished.", completed);
 }
 
 /// Run covit and return the picked file.
