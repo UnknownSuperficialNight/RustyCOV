@@ -1,5 +1,6 @@
 mod deps_download;
 mod helpers;
+mod lofty;
 mod structs;
 
 use std::{path::PathBuf, process::Command};
@@ -8,6 +9,7 @@ use clap::{Arg, command};
 
 use crate::{
     deps_download::download_and_extract_deps,
+    lofty::embed_cover_image,
     structs::{Picked, RustyCov},
 };
 
@@ -71,6 +73,11 @@ fn main() {
                         picked.coverInfo.height,
                         picked.bigCoverUrl
                     );
+
+                    // Embed the cover image
+                    if let Err(e) = embed_cover_image(path, &picked.bigCoverUrl) {
+                        eprintln!("Failed to embed cover: {}", e);
+                    }
                 } else {
                     println!("No cover info found for {:?}", path);
                 }

@@ -11,6 +11,7 @@ indicatif = { version = "0.18.0", default-features = false }
 thiserror = "2.0.17"
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.145", default-features = false, features = ["std"] }
+lofty = "0.22.4"
 
 [target.'cfg(windows)'.dependencies]
 zip = { version = "6.0.0", default-features = false, features = ["deflate"] }
