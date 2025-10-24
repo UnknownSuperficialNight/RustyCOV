@@ -22,3 +22,10 @@ windows-sys = { version = "0.61.2", default-features = false, features = [
 [target.'cfg(unix)'.dependencies]
 xz2 = { version = "0.1.7", default-features = false, features = ["static"] }
 tar = { version = "0.4.44", default-features = false }
+
+[profile.release]
+opt-level = 3     #'z'   # Optimize for size
+lto = true        # Enable link-time optimization
+codegen-units = 1 # Reduce number of codegen units to increase optimizations
+panic = 'abort'   # Abort on panic
+strip = true      # Strip symbols from binary*
