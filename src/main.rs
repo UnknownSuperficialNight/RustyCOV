@@ -1,12 +1,16 @@
 mod deps_download;
 mod helpers;
+mod image;
 mod lofty;
 mod structs;
+
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::thread::{JoinHandle, spawn};
 use std::{path::PathBuf, process::Command};
 
-use clap::{Arg, command};
+use clap::{Arg, ArgAction, command};
 
 use crate::{
     deps_download::download_and_extract_deps,
@@ -17,7 +21,7 @@ use crate::{
 fn main() {
     let mut rusty_cov_global = RustyCov::new();
 
-    let matches = command!()
+    let mut cmd = command!()
         .arg(
             Arg::new("input_string")
                 .short('i')
@@ -27,8 +31,39 @@ fn main() {
                 .help("Input directory or file to process").long_help("Input a directory that will be recursively processed or a single file to process")
                 .required(true),
         )
-        .arg(Arg::new("cov_address").short('c').long("cov-address-url").num_args(1).value_name("cov_address_url").help("Address of the COV website to be opened on launch"))
-        .get_matches();
+        .arg(Arg::new("cov_address").short('c').long("cov-address-url").num_args(1).value_name("cov_address_url").help("Address of the COV website to be opened on launch"));
+
+    // Conditionally add arguments
+    #[cfg(feature = "jpeg-opt")]
+    {
+        cmd = cmd
+            .arg(
+                Arg::new("convert_png_to_jpg")
+                    .short('j')
+                    .long("convert-png-to-jpg")
+                    .help("Convert PNG to JPG")
+                    .long_help("If a PNG is selected, convert it to JPG to save space")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("jpeg_optimise")
+                    .long("jpeg-optimise")
+                    .help("Optimise JPEG images")
+                    .action(ArgAction::SetTrue),
+            );
+    }
+
+    #[cfg(feature = "png-opt")]
+    {
+        cmd = cmd.arg(
+            Arg::new("png_opt")
+                .long("png-opt")
+                .help("Optimise PNG images")
+                .action(ArgAction::SetTrue),
+        );
+    }
+
+    let matches = cmd.get_matches();
 
     match download_and_extract_deps() {
         Ok(deps) => {
@@ -48,6 +83,25 @@ fn main() {
     if let Some(raw) = matches.get_one::<String>("cov_address") {
         rusty_cov_global.cov_address = Some(raw);
     }
+
+    // For each flag, create an Arc<AtomicBool> and set its value
+    #[cfg(feature = "jpeg-opt")]
+    let convert_png_to_jpg = Arc::new(AtomicBool::new(matches.get_flag("convert_png_to_jpg")));
+
+    #[cfg(not(feature = "jpeg-opt"))]
+    let convert_png_to_jpg = Arc::new(AtomicBool::new(false));
+
+    #[cfg(feature = "jpeg-opt")]
+    let jpeg_optimise = Arc::new(AtomicBool::new(matches.get_flag("jpeg_optimise")));
+
+    #[cfg(not(feature = "jpeg-opt"))]
+    let jpeg_optimise = Arc::new(AtomicBool::new(false));
+
+    #[cfg(feature = "png-opt")]
+    let png_opt = Arc::new(AtomicBool::new(matches.get_flag("png_opt")));
+
+    #[cfg(not(feature = "png-opt"))]
+    let png_opt = Arc::new(AtomicBool::new(false));
 
     // If no files were found, exit.
     if rusty_cov_global.files.is_none() {
@@ -78,9 +132,19 @@ fn main() {
                         picked.bigCoverUrl
                     );
 
+                    let convert_png_to_jpg = Arc::clone(&convert_png_to_jpg);
+                    let jpeg_optimise = Arc::clone(&jpeg_optimise);
+                    let png_opt = Arc::clone(&png_opt);
+
                     let handle = spawn(move || {
                         // Embed the cover image
-                        if let Err(e) = embed_cover_image(path, &picked.bigCoverUrl) {
+                        if let Err(e) = embed_cover_image(
+                            path,
+                            &picked.bigCoverUrl,
+                            convert_png_to_jpg,
+                            jpeg_optimise,
+                            png_opt,
+                        ) {
                             eprintln!("Failed to embed cover: {}", e);
                         }
                     });
