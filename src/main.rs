@@ -17,16 +17,6 @@ use crate::{
 fn main() {
     let mut rusty_cov_global = RustyCov::new();
 
-    match download_and_extract_deps() {
-        Ok(deps) => {
-            rusty_cov_global.deps = Some(deps);
-        }
-        Err(e) => {
-            eprintln!("Failed to download dependencies: {e}");
-            return;
-        }
-    }
-
     let matches = command!()
         .arg(
             Arg::new("input_string")
@@ -39,6 +29,16 @@ fn main() {
         )
         .arg(Arg::new("cov_address").short('c').long("cov-address-url").num_args(1).value_name("cov_address_url").help("Address of the COV website to be opened on launch"))
         .get_matches();
+
+    match download_and_extract_deps() {
+        Ok(deps) => {
+            rusty_cov_global.deps = Some(deps);
+        }
+        Err(e) => {
+            eprintln!("Failed to download dependencies: {e}");
+            return;
+        }
+    }
 
     // Extract the input string from the command line arguments.
     if let Some(raw) = matches.get_one::<String>("input_string") {
