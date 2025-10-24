@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use serde::{Deserialize, Serialize};
+
 use walkdir::WalkDir;
 
 use crate::deps_download::DependencyPaths;
@@ -57,17 +59,19 @@ impl FileFormat {
 }
 
 /// Holds the list of files (with detected format) for the supplied input.
-pub struct RustyCov {
+pub struct RustyCov<'a> {
     /// `None` → no input processed yet; `Some(vec)` → list of files.
     pub files: Option<Vec<(PathBuf, FileFormat)>>,
     pub deps: Option<DependencyPaths>,
+    pub cov_address: Option<&'a str>,
 }
 
-impl RustyCov {
+impl<'a> RustyCov<'a> {
     pub fn new() -> Self {
         Self {
             files: None,
             deps: None,
+            cov_address: Some("https://covers.musichoarders.xyz"),
         }
     }
 
@@ -109,4 +113,33 @@ impl RustyCov {
             self.files = Some(collected);
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Picked {
+    pub action: String,
+    #[serde(rename = "type")]
+    pub pick_type: String,
+    pub smallCoverUrl: String,
+    pub bigCoverUrl: String,
+    pub releaseInfo: ReleaseInfo,
+    pub source: String,
+    pub cache: bool,
+    pub coverInfo: CoverInfo,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReleaseInfo {
+    pub title: String,
+    pub artist: String,
+    pub date: String,
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CoverInfo {
+    pub format: String,
+    pub height: u32,
+    pub width: u32,
+    pub size: u64,
 }
