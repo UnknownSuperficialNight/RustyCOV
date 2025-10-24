@@ -64,7 +64,6 @@ pub struct DependencyPaths {
 }
 
 pub fn download_and_extract_deps() -> Result<DependencyPaths, Box<dyn std::error::Error>> {
-    // Tool name constants
     const FFMPEG: &str = "ffmpeg";
     const FFPROBE: &str = "ffprobe";
     const COVIT: &str = "covit";
@@ -96,10 +95,10 @@ pub fn download_and_extract_deps() -> Result<DependencyPaths, Box<dyn std::error
     let bin_dir = exe_dir.join("deps_bin");
     std::fs::create_dir_all(&bin_dir)?;
 
-    // Helper closure for PATH check or download
+    // Helper closure with skip_extract flag
     let resolve_dep = |name: &str,
                        bin_name: &str,
-                       archive_path: &std::path::Path,
+                       archive_path: Option<&std::path::Path>,
                        url: &str,
                        files: &[&str]|
      -> Result<String, Box<dyn std::error::Error>> {
@@ -108,8 +107,12 @@ pub fn download_and_extract_deps() -> Result<DependencyPaths, Box<dyn std::error
         } else {
             let out_path = bin_dir.join(bin_name);
             if !out_path.exists() {
-                download_with_progress(url, archive_path.to_str().unwrap())?;
-                extract_selected_files(archive_path, files, &bin_dir)?;
+                println!("Downloading dependency: {name}");
+                download_with_progress(url, out_path.to_str().unwrap())?;
+
+                if let Some(archive) = archive_path {
+                    extract_selected_files(archive, files, &bin_dir)?;
+                }
             }
             #[cfg(target_os = "linux")]
             set_executable_permissions(&out_path)?;
@@ -117,35 +120,26 @@ pub fn download_and_extract_deps() -> Result<DependencyPaths, Box<dyn std::error
         }
     };
 
-    // ffmpeg and ffprobe (from same archive)
     let archive_path = bin_dir.join(FFMPEG_ARCHIVE);
+
+    // ffmpeg and ffprobe come from archive, so skip_extract = false
     let ffmpeg = resolve_dep(
         FFMPEG,
         FFMPEG_FILES[0],
-        &archive_path,
+        Some(&archive_path),
         FFMPEG_URL,
         &[FFMPEG_FILES[0]],
     )?;
     let ffprobe = resolve_dep(
         FFPROBE,
         FFMPEG_FILES[1],
-        &archive_path,
+        Some(&archive_path),
         FFMPEG_URL,
         &[FFMPEG_FILES[1]],
     )?;
 
-    // covit (standalone)
-    let covit = if is_in_path(COVIT) {
-        COVIT.to_string()
-    } else {
-        let covit_path = bin_dir.join(COVIT_BIN);
-        if !covit_path.exists() {
-            download_with_progress(COVIT_URL, covit_path.to_str().unwrap())?;
-            #[cfg(target_os = "linux")]
-            set_executable_permissions(&covit_path)?;
-        }
-        covit_path.to_string_lossy().to_string()
-    };
+    // covit is a single binary, so skip_extract = true
+    let covit = resolve_dep(COVIT, COVIT_BIN, None, COVIT_URL, &[])?;
 
     Ok(DependencyPaths {
         ffmpeg,
