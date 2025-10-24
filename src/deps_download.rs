@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io;
 use std::io::Read;
 use std::io::Write;
-use std::path::PathBuf;
 use thiserror::Error;
 use ureq::get;
 
@@ -21,13 +20,13 @@ use crate::helpers::set_executable_permissions;
 #[derive(Error, Debug)]
 enum DownloadError {
     #[error("HTTP request failed: {0}")]
-    RequestError(#[from] ureq::Error),
+    Request(#[from] ureq::Error),
 
     #[error("I/O error: {0}")]
-    IoError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 
     #[error("Header parsing error")]
-    HeaderParseError,
+    HeaderParse,
 }
 
 #[cfg(target_os = "linux")]
@@ -38,9 +37,6 @@ pub enum ExtractError {
 
     #[error("XZ decompression error: {0}")]
     Xz(#[from] XzError),
-
-    #[error("Unsupported archive format")]
-    UnsupportedFormat,
 }
 
 #[cfg(target_os = "windows")]
@@ -51,9 +47,6 @@ pub enum ExtractError {
 
     #[error("Zip error: {0}")]
     Zip(#[from] ZipError),
-
-    #[error("Unsupported archive format")]
-    UnsupportedFormat,
 }
 
 #[derive(Debug, Clone)]
@@ -229,7 +222,7 @@ fn download_with_progress(linux_url: &str, tar_xz_path: &str) -> Result<(), Down
         .get("Content-Length")
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.parse::<u64>().ok())
-        .ok_or(DownloadError::HeaderParseError)?;
+        .ok_or(DownloadError::HeaderParse)?;
 
     let mut file = File::create(tar_xz_path)?;
     let mut reader = body.into_reader();
