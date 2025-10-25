@@ -12,6 +12,7 @@ use std::{path::PathBuf, process::Command};
 
 use clap::{Arg, ArgAction, command};
 
+use crate::structs::{CoverInfo, ReleaseInfo};
 use crate::{
     deps_download::download_and_extract_deps,
     lofty::embed_cover_image,
@@ -122,14 +123,14 @@ fn main() {
                 ) {
                     println!(
                         "Artist: {}\nTitle: {}\nDate: {}\nCover Type: {}\nImage Size: {} bytes\nDimensions: {}x{}\nBig Cover URL: {}\n",
-                        picked.releaseInfo.artist,
-                        picked.releaseInfo.title,
-                        picked.releaseInfo.date,
-                        picked.coverInfo.format,
-                        picked.coverInfo.size,
-                        picked.coverInfo.width,
-                        picked.coverInfo.height,
-                        picked.bigCoverUrl
+                        picked.release_info.artist,
+                        picked.release_info.title,
+                        picked.release_info.date,
+                        picked.cover_info.format,
+                        picked.cover_info.size,
+                        picked.cover_info.width,
+                        picked.cover_info.height,
+                        picked.big_cover_url
                     );
 
                     let convert_png_to_jpg = Arc::clone(&convert_png_to_jpg);
@@ -140,7 +141,7 @@ fn main() {
                         // Embed the cover image
                         if let Err(e) = embed_cover_image(
                             path,
-                            &picked.bigCoverUrl,
+                            &picked.big_cover_url,
                             convert_png_to_jpg,
                             jpeg_optimise,
                             png_opt,
@@ -173,24 +174,95 @@ fn main() {
 
 /// Run covit and return the picked file.
 fn run_covit(covit_path: &str, address: &str, input: &PathBuf) -> Option<Picked> {
+    use std::process::Command;
+
+    // First attempt: run covit normally
     let output = Command::new(covit_path)
         .arg("--address")
         .arg(address)
         .arg("--input")
         .arg(input)
         .output()
-        .expect("Failed to execute covit");
+        .ok()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Find the line starting with "Picked:"
+    // Check if output only contains "Listening: <number>"
+    if stdout.lines().all(|line| line.starts_with("Listening:")) && stderr.trim().is_empty() {
+        println!("User closed the tab");
+        return None; // User closed the browser tab
+    }
+
+    let picked = parse_covit_output(output.stdout);
+
+    // If picked is not None, return it
+    if let Some(picked) = picked {
+        return Some(picked);
+    }
+
+    // Fallback: parse file name for artist and title
+    let file_stem = input.file_stem()?.to_str()?;
+    let (artist_opt, title_opt) = parse_file_name(file_stem);
+
+    // Only retry if we have at least a title
+    let title = match title_opt {
+        Some(ref t) if !t.is_empty() => t,
+        _ => return None,
+    };
+
+    // Second attempt: run covit with --query-artist and --query-album
+    let output = run_covit_query(covit_path, address, title, artist_opt)?;
+    parse_covit_output(output.stdout)
+}
+
+fn parse_covit_output(stdout: Vec<u8>) -> Option<Picked> {
+    let stdout = String::from_utf8_lossy(&stdout);
+
     for line in stdout.lines() {
-        if let Some(json) = line.strip_prefix("Picked: ") {
-            // Try to deserialize
-            if let Ok(picked) = serde_json::from_str::<Picked>(json) {
-                return Some(picked);
-            }
+        if let Some(json) = line.strip_prefix("Picked: ")
+            && let Ok(picked) = serde_json::from_str::<Picked>(json)
+        {
+            return Some(picked);
         }
     }
+
     None
+}
+
+fn run_covit_query(
+    covit_path: &str,
+    address: &str,
+    title: &str,
+    artist_opt: Option<String>,
+) -> Option<std::process::Output> {
+    let mut cmd = Command::new(covit_path);
+    cmd.arg("--address")
+        .arg(address)
+        .arg("--query-album")
+        .arg(title);
+
+    if let Some(ref artist) = artist_opt
+        && !artist.is_empty()
+    {
+        cmd.arg("--query-artist").arg(artist);
+    }
+
+    cmd.output().ok()
+}
+
+fn parse_file_name(file_stem: &str) -> (Option<String>, Option<String>) {
+    let delimiters = [" - ", " – ", " — ", " _ ", ":", " | "];
+
+    for delim in &delimiters {
+        if let Some(idx) = file_stem.find(delim) {
+            let (left, right) = file_stem.split_at(idx);
+            let right = &right[delim.len()..];
+            return (
+                Some(left.trim().to_string()),
+                Some(right.trim().to_string()),
+            );
+        }
+    }
+    (None, Some(file_stem.trim().to_string()))
 }

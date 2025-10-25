@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use walkdir::WalkDir;
 
@@ -100,7 +100,7 @@ impl<'a> RustyCov<'a> {
             // Single file case – keep it only if it matches a known format.
             let fmt = FileFormat::from_path(&path);
             if fmt.is_known() {
-                collected.push((path));
+                collected.push(path);
             }
         } else {
             eprintln!("❌ Path '{}' does not exist.", path_str);
@@ -115,28 +115,24 @@ impl<'a> RustyCov<'a> {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct Picked {
-    pub action: String,
-    #[serde(rename = "type")]
-    pub pick_type: String,
-    pub smallCoverUrl: String,
-    pub bigCoverUrl: String,
-    pub releaseInfo: ReleaseInfo,
-    pub source: String,
-    pub cache: bool,
-    pub coverInfo: CoverInfo,
+    pub big_cover_url: String,
+    pub release_info: ReleaseInfo,
+    pub cover_info: CoverInfo,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ReleaseInfo {
     pub title: String,
     pub artist: String,
     pub date: String,
-    pub url: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct CoverInfo {
     pub format: String,
     pub height: u32,
