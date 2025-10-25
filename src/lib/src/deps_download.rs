@@ -3,9 +3,6 @@ use crate::helpers::set_executable_permissions;
 use crate::helpers::{get_current_dir, is_in_path};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs::File;
-#[cfg(unix)]
-use std::io::{self, Read, Write};
-#[cfg(windows)]
 use std::io::{Read, Write};
 use thiserror::Error;
 use ureq::get;
@@ -15,9 +12,6 @@ use xz2::stream::Error as XzError;
 
 #[cfg(all(windows, feature = "depend-on-ffmpeg"))]
 use zip::result::ZipError;
-
-#[cfg(unix)]
-use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct DependencyPaths {
