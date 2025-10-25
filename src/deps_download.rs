@@ -6,6 +6,9 @@ use std::io::Write;
 use thiserror::Error;
 use ureq::get;
 
+#[cfg(target_os = "windows")]
+use std::fs::remove_file;
+
 #[cfg(target_os = "linux")]
 use xz2::stream::Error as XzError;
 
@@ -40,7 +43,7 @@ pub enum ExtractError {
 }
 
 #[cfg(target_os = "windows")]
-#[derive(ThisError, Debug)]
+#[derive(Error, Debug)]
 pub enum ExtractError {
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),
@@ -207,7 +210,7 @@ pub fn extract_selected_files(
     }
 
     // Remove the ZIP file
-    if let Err(err) = fs::remove_file(archive_path) {
+    if let Err(err) = remove_file(archive_path) {
         eprintln!("Error deleting file: {}", err);
     }
     Ok(())
