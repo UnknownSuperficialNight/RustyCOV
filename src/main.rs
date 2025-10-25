@@ -12,7 +12,6 @@ use std::{path::PathBuf, process::Command};
 
 use clap::{Arg, ArgAction, command};
 
-use crate::structs::{CoverInfo, ReleaseInfo};
 use crate::{
     deps_download::download_and_extract_deps,
     lofty::embed_cover_image,
