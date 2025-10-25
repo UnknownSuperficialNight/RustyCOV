@@ -1,36 +1,6 @@
-[package]
-name = "RustyCOV"
-version = "0.0.1"
-edition = "2024"
-
-[dependencies]
-clap = { version = "4.5.50", features = ["cargo"] }
-walkdir = "2.5.0"
-ureq = { version = "3.1.2", features = ["gzip", "rustls"] }
-indicatif = { version = "0.18.0", default-features = false }
-thiserror = "2.0.17"
-serde = { version = "1.0.228", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0.145", default-features = false, features = ["std"] }
-lofty = "0.22.4"
-
-oxipng = { version = "9.1.5", optional = true, features = ["parallel", "filetime"], default-features = false }
-image =  { version = "0.25.8", optional = true, features = ["rayon", "jpeg", "png"], default-features = false }
-
-[features]
-default = ["png-opt", "jpeg-opt"]
-
-png-opt  = ["oxipng"]
-jpeg-opt = ["image"]
-
-[target.'cfg(windows)'.dependencies]
-zip = { version = "6.0.0", default-features = false, features = ["deflate"] }
-windows-sys = { version = "0.61.2", default-features = false, features = [
-    "Win32_System_Threading", "Win32_System_Console",
-] }
-
-[target.'cfg(unix)'.dependencies]
-xz2 = { version = "0.1.7", default-features = false, features = ["static"] }
-tar = { version = "0.4.44", default-features = false }
+[workspace]
+members = ["lib", "bin"]
+resolver = "3"
 
 [profile.release]
 opt-level = 3     #'z'   # Optimize for size

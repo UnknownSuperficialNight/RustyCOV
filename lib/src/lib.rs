@@ -1,16 +1,14 @@
-mod deps_download;
-mod helpers;
-mod image;
-mod lofty;
-mod structs;
+pub mod deps_download; // Add this line to include the module
+pub mod helpers; // Add this line to include the module
+pub mod image; // Add this line to include the module
+pub mod lofty; // Add this line to include the module
+pub mod structs; // Add this line to include the module
 
 use std::collections::HashMap;
+use std::path::Path;
+use std::process::Command;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use std::thread::{JoinHandle, spawn};
-use std::{path::PathBuf, process::Command};
-
-use clap::{Arg, ArgAction, command};
 
 use crate::{
     deps_download::download_and_extract_deps,
@@ -18,99 +16,80 @@ use crate::{
     structs::{Picked, RustyCov},
 };
 
-fn main() {
-    let mut rusty_cov_global = RustyCov::new();
+/// Embeds cover images into audio files.
+///
+/// # Arguments
+///
+/// * `audio_path` - The path to the audio file.
+/// * `image_url` - The URL of the image to embed.
+/// * `convert_png_to_jpg` - Whether to convert PNG images to JPEG before embedding.
+/// * `jpeg_optimise` - Whether to optimize JPEG images.
+/// * `png_opt` - Whether to optimize PNG images.
+pub fn embed_cover_into_audio<P: AsRef<Path>>(
+    audio_path: P,
+    image_url: &str,
+    convert_png_to_jpg: Arc<AtomicBool>,
+    jpeg_optimise: Arc<AtomicBool>,
+    png_opt: Arc<AtomicBool>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    embed_cover_image(
+        audio_path,
+        image_url,
+        convert_png_to_jpg,
+        jpeg_optimise,
+        png_opt,
+    )
+}
 
-    let mut cmd = command!()
-        .arg(
-            Arg::new("input_string")
-                .short('i')
-                .long("input")
-                .num_args(1)
-                .value_name("input-string")
-                .help("Input directory or file to process").long_help("Input a directory that will be recursively processed or a single file to process")
-                .required(true),
-        )
-        .arg(Arg::new("cov_address").short('c').long("cov-address-url").num_args(1).value_name("cov_address_url").help("Address of the COV website to be opened on launch"));
+/// Runs the main logic of the application.
+///
+/// # Arguments
+///
+/// * `input_string` - The input directory or file to process.
+/// * `cov_address` - The address of the COV website to be opened on launch.
+/// * `convert_png_to_jpg` - Whether to convert PNG images to JPEG before embedding.
+/// * `jpeg_optimise` - Whether to optimize JPEG images.
+/// * `png_opt` - Whether to optimize PNG images.
+pub fn run(
+    input_string: &str,
+    cov_address: Option<&str>,
+    convert_png_to_jpg: bool,
+    jpeg_optimise: bool,
+    png_opt: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut rusty_cov_global = RustyCov::default();
 
-    // Conditionally add arguments
-    #[cfg(feature = "jpeg-opt")]
-    {
-        cmd = cmd
-            .arg(
-                Arg::new("convert_png_to_jpg")
-                    .short('j')
-                    .long("convert-png-to-jpg")
-                    .help("Convert PNG to JPG")
-                    .long_help("If a PNG is selected, convert it to JPG to save space")
-                    .action(ArgAction::SetTrue),
-            )
-            .arg(
-                Arg::new("jpeg_optimise")
-                    .long("jpeg-optimise")
-                    .help("Optimise JPEG images")
-                    .action(ArgAction::SetTrue),
-            );
+    // Populate files from input
+    rusty_cov_global.populate_from_input(input_string);
+
+    if let Some(cov_address) = cov_address {
+        rusty_cov_global.cov_address = Some(cov_address);
     }
 
-    #[cfg(feature = "png-opt")]
-    {
-        cmd = cmd.arg(
-            Arg::new("png_opt")
-                .long("png-opt")
-                .help("Optimise PNG images")
-                .action(ArgAction::SetTrue),
-        );
-    }
-
-    let matches = cmd.get_matches();
-
+    // Download dependencies
     match download_and_extract_deps() {
         Ok(deps) => {
             rusty_cov_global.deps = Some(deps);
         }
         Err(e) => {
             eprintln!("Failed to download dependencies: {e}");
-            return;
+            return Err(e);
         }
     }
 
-    // Extract the input string from the command line arguments.
-    if let Some(raw) = matches.get_one::<String>("input_string") {
-        rusty_cov_global.populate_from_input(raw);
-    }
-
-    if let Some(raw) = matches.get_one::<String>("cov_address") {
-        rusty_cov_global.cov_address = Some(raw);
-    }
-
-    // For each flag, create an Arc<AtomicBool> and set its value
-    #[cfg(feature = "jpeg-opt")]
-    let convert_png_to_jpg = Arc::new(AtomicBool::new(matches.get_flag("convert_png_to_jpg")));
-
-    #[cfg(not(feature = "jpeg-opt"))]
-    let convert_png_to_jpg = Arc::new(AtomicBool::new(false));
-
-    #[cfg(feature = "jpeg-opt")]
-    let jpeg_optimise = Arc::new(AtomicBool::new(matches.get_flag("jpeg_optimise")));
-
-    #[cfg(not(feature = "jpeg-opt"))]
-    let jpeg_optimise = Arc::new(AtomicBool::new(false));
-
-    #[cfg(feature = "png-opt")]
-    let png_opt = Arc::new(AtomicBool::new(matches.get_flag("png_opt")));
-
-    #[cfg(not(feature = "png-opt"))]
-    let png_opt = Arc::new(AtomicBool::new(false));
+    // Create atomic bools for features
+    let convert_png_to_jpg = Arc::new(AtomicBool::new(convert_png_to_jpg));
+    let jpeg_optimise = Arc::new(AtomicBool::new(jpeg_optimise));
+    let png_opt = Arc::new(AtomicBool::new(png_opt));
 
     // If no files were found, exit.
     if rusty_cov_global.files.is_none() {
         eprintln!("No supported audio/video files were found exiting.");
-        return;
+        return Ok(());
     }
 
     // Store handles so we can wait for them later
-    let mut handles: HashMap<usize, JoinHandle<()>> = HashMap::new();
+    let mut handles: HashMap<usize, std::thread::JoinHandle<()>> = HashMap::new();
 
     match rusty_cov_global.files {
         Some(mut list) if !list.is_empty() => {
@@ -136,7 +115,7 @@ fn main() {
                     let jpeg_optimise = Arc::clone(&jpeg_optimise);
                     let png_opt = Arc::clone(&png_opt);
 
-                    let handle = spawn(move || {
+                    let handle = std::thread::spawn(move || {
                         // Embed the cover image
                         if let Err(e) = embed_cover_image(
                             path,
@@ -169,10 +148,11 @@ fn main() {
     }
 
     println!("Summary: {} job(s) finished.", completed);
+    Ok(())
 }
 
 /// Run covit and return the picked file.
-fn run_covit(covit_path: &str, address: &str, input: &PathBuf) -> Option<Picked> {
+fn run_covit(covit_path: &str, address: &str, input: &std::path::PathBuf) -> Option<Picked> {
     use std::process::Command;
 
     // First attempt: run covit normally

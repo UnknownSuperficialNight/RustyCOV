@@ -1,0 +1,8 @@
+[package]
+name = "rusty_cov_bin"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+rusty_cov_lib = { path = "../lib" }
+clap = { version = "4.5.50", features = ["cargo"] }

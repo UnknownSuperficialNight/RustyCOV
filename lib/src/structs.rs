@@ -66,15 +66,17 @@ pub struct RustyCov<'a> {
     pub cov_address: Option<&'a str>,
 }
 
-impl<'a> RustyCov<'a> {
-    pub fn new() -> Self {
+impl<'a> Default for RustyCov<'a> {
+    fn default() -> Self {
         Self {
             files: None,
             deps: None,
             cov_address: Some("https://covers.musichoarders.xyz"),
         }
     }
+}
 
+impl<'a> RustyCov<'a> {
     /// Populate `files` from a path that may be a file or a directory.
     /// Only entries whose extension maps to a known `FileFormat` are kept.
     pub fn populate_from_input<S: Into<String>>(&mut self, input: S) {
