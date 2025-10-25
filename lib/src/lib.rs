@@ -1,11 +1,12 @@
-pub mod deps_download; // Add this line to include the module
-pub mod helpers; // Add this line to include the module
-pub mod image; // Add this line to include the module
-pub mod lofty; // Add this line to include the module
-pub mod structs; // Add this line to include the module
+pub mod deps_download;
+pub mod helpers;
+#[doc(hidden)]
+pub mod image;
+
+pub mod lofty;
+pub mod structs;
 
 use std::collections::HashMap;
-use std::path::Path;
 use std::process::Command;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -16,40 +17,22 @@ use crate::{
     structs::{Picked, RustyCov},
 };
 
-/// Embeds cover images into audio files.
-///
-/// # Arguments
-///
-/// * `audio_path` - The path to the audio file.
-/// * `image_url` - The URL of the image to embed.
-/// * `convert_png_to_jpg` - Whether to convert PNG images to JPEG before embedding.
-/// * `jpeg_optimise` - Whether to optimize JPEG images.
-/// * `png_opt` - Whether to optimize PNG images.
-pub fn embed_cover_into_audio<P: AsRef<Path>>(
-    audio_path: P,
-    image_url: &str,
-    convert_png_to_jpg: Arc<AtomicBool>,
-    jpeg_optimise: Arc<AtomicBool>,
-    png_opt: Arc<AtomicBool>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    embed_cover_image(
-        audio_path,
-        image_url,
-        convert_png_to_jpg,
-        jpeg_optimise,
-        png_opt,
-    )
-}
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const PROGRAM_NAME: &str = env!("CARGO_PKG_NAME");
 
 /// Runs the main logic of the application.
 ///
 /// # Arguments
 ///
-/// * `input_string` - The input directory or file to process.
-/// * `cov_address` - The address of the COV website to be opened on launch.
+/// * `input_string` - Input directory or file to process.
+/// * `cov_address` - Address of the COV website for launch.
 /// * `convert_png_to_jpg` - Whether to convert PNG images to JPEG before embedding.
 /// * `jpeg_optimise` - Whether to optimize JPEG images.
 /// * `png_opt` - Whether to optimize PNG images.
+///
+/// # Returns
+///
+/// Result indicating success or an error if any step fails.
 pub fn run(
     input_string: &str,
     cov_address: Option<&str>,
@@ -152,7 +135,7 @@ pub fn run(
 }
 
 /// Run covit and return the picked file.
-fn run_covit(covit_path: &str, address: &str, input: &std::path::PathBuf) -> Option<Picked> {
+pub fn run_covit(covit_path: &str, address: &str, input: &std::path::PathBuf) -> Option<Picked> {
     use std::process::Command;
 
     // First attempt: run covit normally
@@ -161,6 +144,8 @@ fn run_covit(covit_path: &str, address: &str, input: &std::path::PathBuf) -> Opt
         .arg(address)
         .arg("--input")
         .arg(input)
+        .arg("--remote-agent")
+        .arg(format!("{} - {}", PROGRAM_NAME, VERSION))
         .output()
         .ok()?;
 
@@ -195,6 +180,7 @@ fn run_covit(covit_path: &str, address: &str, input: &std::path::PathBuf) -> Opt
     parse_covit_output(output.stdout)
 }
 
+/// Parses covit output to extract Picked information.
 fn parse_covit_output(stdout: Vec<u8>) -> Option<Picked> {
     let stdout = String::from_utf8_lossy(&stdout);
 
@@ -209,6 +195,7 @@ fn parse_covit_output(stdout: Vec<u8>) -> Option<Picked> {
     None
 }
 
+/// Runs covit with --query-artist and --query-album.
 fn run_covit_query(
     covit_path: &str,
     address: &str,
@@ -219,6 +206,8 @@ fn run_covit_query(
     cmd.arg("--address")
         .arg(address)
         .arg("--query-album")
+        .arg("--remote-agent")
+        .arg(format!("{} - {}", PROGRAM_NAME, VERSION))
         .arg(title);
 
     if let Some(ref artist) = artist_opt
@@ -230,6 +219,7 @@ fn run_covit_query(
     cmd.output().ok()
 }
 
+/// Parses file name to extract artist and title.
 fn parse_file_name(file_stem: &str) -> (Option<String>, Option<String>) {
     let delimiters = [" - ", " – ", " — ", " _ ", ":", " | "];
 

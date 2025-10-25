@@ -5,7 +5,21 @@ use std::io::Cursor;
 use lofty::picture::Picture;
 
 #[cfg(feature = "jpeg-opt")]
-pub fn convert_and_optimise_png_to_jpeg(
+/// Converts and optimises a PNG image to JPEG format.
+///
+/// This function reads a PNG image from the provided cursor, converts it to JPEG,
+/// and then replaces the original buffer with the new JPEG data. It also updates the
+/// given `Picture` object with the new JPEG image data.
+///
+/// # Arguments
+///
+/// * `cursor` - A mutable cursor containing the PNG image data.
+/// * `picture` - A mutable reference to a `Picture` object that will be updated with the JPEG image.
+///
+/// # Returns
+///
+/// A `Result` indicating success or an error if any step fails.
+pub(crate) fn convert_and_optimise_png_to_jpeg(
     cursor: &mut Cursor<Vec<u8>>,
     picture: &mut Picture,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -32,7 +46,19 @@ pub fn convert_and_optimise_png_to_jpeg(
 }
 
 #[cfg(feature = "png-opt")]
-pub fn optimise_png(
+/// Optimises a PNG image in memory.
+///
+/// This function reads the PNG data from the provided cursor, optimises it using oxipng,
+/// and then replaces the original buffer with the optimised data.
+///
+/// # Arguments
+///
+/// * `cursor` - A mutable cursor containing the PNG image data.
+///
+/// # Returns
+///
+/// A `Result` indicating success or an error if any step fails.
+pub(crate) fn optimise_png(
     cursor: &mut std::io::Cursor<Vec<u8>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use oxipng::{Options as OxipngOptions, StripChunks, optimize_from_memory};

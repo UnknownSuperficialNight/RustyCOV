@@ -17,6 +17,19 @@ use crate::image::convert_and_optimise_png_to_jpeg;
 
 const ALLOCATION_LIMIT: usize = 1024 * 1024 * 1024;
 
+/// Embeds a cover image into an audio file.
+///
+/// # Arguments
+///
+/// * `audio_path` - Path to the audio file.
+/// * `image_url` - URL of the image to embed.
+/// * `convert_png_to_jpg` - Whether to convert PNG images to JPEG before embedding.
+/// * `jpeg_optimise` - Whether to optimise JPEG images.
+/// * `png_opt` - Whether to optimise PNG images.
+///
+/// # Returns
+///
+/// Result indicating success or an error if any step fails.
 pub fn embed_cover_image<P: AsRef<Path>>(
     audio_path: P,
     image_url: &str,

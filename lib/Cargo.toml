@@ -1,5 +1,5 @@
 [package]
-name = "rusty_cov_lib"
+name = "rusty_cov"
 version = "0.0.1"
 edition = "2024"
 
@@ -20,6 +20,7 @@ default = ["png-opt", "jpeg-opt"]
 
 png-opt  = ["oxipng"]
 jpeg-opt = ["image"]
+depend-on-ffmpeg = []
 
 [target.'cfg(windows)'.dependencies]
 zip = { version = "6.0.0", default-features = false, features = ["deflate"] }

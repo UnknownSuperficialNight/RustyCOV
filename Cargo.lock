@@ -1115,15 +1115,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
-name = "rusty_cov_bin"
-version = "0.0.1"
-dependencies = [
- "clap",
- "rusty_cov_lib",
-]
-
-[[package]]
-name = "rusty_cov_lib"
+name = "rusty_cov"
 version = "0.0.1"
 dependencies = [
  "image",
@@ -1139,6 +1131,14 @@ dependencies = [
  "windows-sys 0.61.2",
  "xz2",
  "zip",
+]
+
+[[package]]
+name = "rusty_cov_bin"
+version = "0.0.1"
+dependencies = [
+ "clap",
+ "rusty_cov",
 ]
 
 [[package]]

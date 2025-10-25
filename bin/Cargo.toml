@@ -4,5 +4,11 @@ version = "0.0.1"
 edition = "2024"
 
 [dependencies]
-rusty_cov_lib = { path = "../lib" }
+rusty_cov = { path = "../lib", default-features = false }
 clap = { version = "4.5.50", features = ["cargo"] }
+
+[features]
+default = ["png-opt", "jpeg-opt"]
+
+png-opt = ["rusty_cov/png-opt"]
+jpeg-opt = ["rusty_cov/jpeg-opt"]

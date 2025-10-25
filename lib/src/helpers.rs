@@ -2,7 +2,14 @@ use std::env;
 use std::path::PathBuf;
 
 /// Checks if a command is in the user's PATH.
-/// On Windows, checks both with and without `.exe` extension.
+///
+/// # Arguments
+///
+/// * `cmd` - The command to check.
+///
+/// # Returns
+///
+/// `true` if the command is found, otherwise `false`.
 pub fn is_in_path(cmd: &str) -> bool {
     let paths = match env::var_os("PATH") {
         Some(paths) => env::split_paths(&paths).collect::<Vec<_>>(),
@@ -31,6 +38,10 @@ pub fn is_in_path(cmd: &str) -> bool {
 }
 
 /// Returns the directory containing the current executable.
+///
+/// # Returns
+///
+/// The `PathBuf` of the current directory or an error if it cannot be determined.
 pub fn get_current_dir() -> PathBuf {
     env::current_exe()
         .expect("Failed to get current executable path")
@@ -39,7 +50,16 @@ pub fn get_current_dir() -> PathBuf {
         .to_path_buf()
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
+/// Sets the file permissions to executable (755).
+///
+/// # Arguments
+///
+/// * `path` - The file path.
+///
+/// # Returns
+///
+/// A `Result` indicating success or failure.
 pub fn set_executable_permissions(path: &std::path::Path) -> std::io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
     let mut perms = std::fs::metadata(path)?.permissions();
