@@ -43,6 +43,7 @@ pub fn optimise_png(
     // Set up oxipng options
     let mut options = OxipngOptions::max_compression();
     options.strip = StripChunks::Safe;
+    options.optimize_alpha = true;
 
     // Optimise the PNG data in memory
     let optimised_data = optimize_from_memory(data, &options)?;
