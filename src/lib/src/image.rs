@@ -32,7 +32,7 @@ pub(crate) fn convert_png_to_jpeg(
     // Decode PNG from memory
     let img = ImageReader::new(&mut *cursor).with_guessed_format()?.decode()?;
 
-    // Encode PNG image as JPEG with default quality (100) into a new Vec<u8>
+    // Encode PNG image as JPEG with default quality (80) into a new Vec<u8>
     // We just convert here, optimisation will be done in optimise_jpeg
     let mut jpeg_bytes = Vec::new();
     img.write_to(&mut Cursor::new(&mut jpeg_bytes), image::ImageFormat::Jpeg)?;
