@@ -1,7 +1,5 @@
 #[cfg(feature = "jpeg-opt")]
-use std::{
-    io::Cursor, sync::{Arc, atomic::AtomicBool, atomic::Ordering}
-};
+use std::io::Cursor;
 
 #[cfg(feature = "jpeg-opt")]
 use image::ImageReader;
@@ -19,14 +17,13 @@ use lofty::picture::Picture;
 ///
 /// * `cursor` - A mutable cursor containing the PNG image data.
 /// * `picture` - A mutable reference to a `Picture` object to update with the JPEG image.
-/// * `jpeg_optimise` - An atomic boolean flag indicating whether to optimise the JPEG image.
-/// * `jpeg_quality` - The quality of the output JPEG image (1-100).
+/// * `jpeg_optimise` - Optimise the JPEG image using the specified quality (1-100) or None for no
+///   optimisation.
 #[cfg(feature = "jpeg-opt")]
 pub(crate) fn convert_png_to_jpeg(
     cursor: &mut std::io::Cursor<Vec<u8>>,
     picture: &mut Picture,
-    jpeg_optimise: &Arc<AtomicBool>,
-    jpeg_quality: u8,
+    jpeg_optimise: Option<u8>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use image::ImageReader;
 
@@ -45,7 +42,7 @@ pub(crate) fn convert_png_to_jpeg(
     cursor.set_position(0);
 
     // Now call optimise_jpeg if requested, else just update picture
-    if jpeg_optimise.load(Ordering::Relaxed) {
+    if let Some(jpeg_quality) = jpeg_optimise {
         optimise_jpeg(cursor, jpeg_quality)?;
     }
 

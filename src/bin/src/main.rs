@@ -48,16 +48,10 @@ fn main() {
             .arg(
                 Arg::new("jpeg_optimise")
                     .long("jpeg-optimise")
-                    .help("Optimise JPEG images")
-                    .action(ArgAction::SetTrue),
-            )
-            .arg(
-                Arg::new("jpeg_quality")
-                    .long("jpeg-quality")
-                    .help("Set the quality to encode the jpeg as as can be between 0 and 100 (default: 80)")
+                    .help("Optimise JPEG images and set quality to specified value (default: 100 this is max quality) can be between 0 and 100")
                     .value_name("JPEG_QUALITY_NUMBER")
                     .value_parser(value_parser!(u8)),
-            );
+            )
     }
 
     #[cfg(feature = "png-opt")]
@@ -83,8 +77,7 @@ fn main() {
         input,
         cov_address,
         matches.get_flag("convert_png_to_jpg"),
-        matches.get_flag("jpeg_optimise"),
-        matches.get_one::<u8>("jpeg_quality").copied(),
+        matches.get_one::<u8>("jpeg_optimise").copied(),
         matches.get_flag("png_optimise"),
         cover_image_name,
     ) {

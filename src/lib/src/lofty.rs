@@ -26,15 +26,14 @@ const ALLOCATION_LIMIT: usize = 1024 * 1024 * 1024;
 /// * `audio_path` - Path to the audio file.
 /// * `image_bytes` - The image data to embed in the audio file.
 /// * `convert_png_to_jpg` - Whether to convert PNG images to JPEG before embedding.
-/// * `jpeg_optimise` - Whether to optimise JPEG images.
-/// * `jpeg_quality` - The quality of the output JPEG image (1-100).
+/// * `jpeg_optimise` - Optimise the JPEG image using the specified quality (1-100) or None for no
+///   optimisation.
 /// * `png_opt` - Whether to optimise PNG images.
 pub fn embed_cover_image<P: AsRef<Path>>(
     audio_path: P,
     image_bytes: Vec<u8>,
     convert_png_to_jpg: Arc<AtomicBool>,
-    jpeg_optimise: Arc<AtomicBool>,
-    jpeg_quality: Option<u8>,
+    jpeg_optimise: Option<u8>,
     png_opt: Arc<AtomicBool>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let global_options = GlobalOptions::new().allocation_limit(ALLOCATION_LIMIT);
@@ -58,13 +57,8 @@ pub fn embed_cover_image<P: AsRef<Path>>(
     };
 
     // Process the image and get the processed bytes and Picture
-    let (_, mut picture) = process_cover_image(
-        image_bytes,
-        &convert_png_to_jpg,
-        &jpeg_optimise,
-        jpeg_quality,
-        &png_opt,
-    )?;
+    let (_, mut picture) =
+        process_cover_image(image_bytes, &convert_png_to_jpg, jpeg_optimise, &png_opt)?;
 
     picture.set_pic_type(PictureType::CoverFront);
 
@@ -89,13 +83,13 @@ pub fn embed_cover_image<P: AsRef<Path>>(
 /// * `image_bytes` - The original image data in bytes.
 /// * `convert_png_to_jpg` - Whether to convert PNG images to JPEG before processing.
 /// * `jpeg_optimise` - Whether to optimise JPEG images.
-/// * `jpeg_quality` - The quality of the output JPEG image (1-100).
+/// * `jpeg_quality` - Optimise the JPEG image using the specified quality (1-100) or None for no
+///   optimisation.
 /// * `png_opt` - Whether to optimise PNG images.
 pub fn process_cover_image(
     image_bytes: Vec<u8>,
     convert_png_to_jpg: &Arc<AtomicBool>,
-    jpeg_optimise: &Arc<AtomicBool>,
-    jpeg_quality: Option<u8>,
+    jpeg_optimise: Option<u8>,
     png_opt: &Arc<AtomicBool>,
 ) -> Result<(Vec<u8>, Picture), Box<dyn std::error::Error>> {
     use std::io::Cursor;
@@ -110,12 +104,7 @@ pub fn process_cover_image(
         Some(MimeType::Png) => {
             #[cfg(feature = "jpeg-opt")]
             if convert_png_to_jpg.load(Ordering::Relaxed) {
-                convert_png_to_jpeg(
-                    &mut cursor,
-                    &mut picture,
-                    jpeg_optimise,
-                    jpeg_quality.unwrap_or(80),
-                )?;
+                convert_png_to_jpeg(&mut cursor, &mut picture, jpeg_optimise)?;
             }
 
             #[cfg(feature = "png-opt")]
@@ -127,8 +116,8 @@ pub fn process_cover_image(
         Some(MimeType::Jpeg) =>
         {
             #[cfg(feature = "jpeg-opt")]
-            if jpeg_optimise.load(Ordering::Relaxed) {
-                optimise_jpeg(&mut cursor, jpeg_quality.unwrap_or(80))?;
+            if let Some(jpeg_quality) = jpeg_optimise {
+                optimise_jpeg(&mut cursor, jpeg_quality)?;
                 picture = Picture::from_reader(&mut cursor)?;
             }
         }

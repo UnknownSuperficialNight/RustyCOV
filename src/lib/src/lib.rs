@@ -32,8 +32,8 @@ const QUERY_COUNTRY: &str = "gb";
 /// * `input_string` - Input directory or file to process.
 /// * `cov_address` - Address of the COV website for launch.
 /// * `convert_png_to_jpg` - Whether to convert PNG images to JPEG before embedding.
-/// * `jpeg_optimise` - Whether to optimize JPEG images.
-/// * `png_opt` - Whether to optimize PNG images.
+/// * `jpeg_optimise` - Whether to optimise JPEG images with the specified quality.
+/// * `png_opt` - Whether to optimise PNG images.
 /// * `album_folder_mode` - Whether to use the album folder mode.
 ///
 /// # Returns
@@ -43,8 +43,7 @@ pub fn run(
     input_string: &str,
     cov_address: Option<&str>,
     convert_png_to_jpg: bool,
-    jpeg_optimise: bool,
-    jpeg_quality: Option<u8>,
+    jpeg_optimise: Option<u8>,
     png_opt: bool,
     album_folder_mode: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -70,7 +69,6 @@ pub fn run(
 
     // Create atomic bools for features
     let convert_png_to_jpg = Arc::new(AtomicBool::new(convert_png_to_jpg));
-    let jpeg_optimise = Arc::new(AtomicBool::new(jpeg_optimise));
     let png_opt = Arc::new(AtomicBool::new(png_opt));
 
     // If no files were found, exit.
@@ -84,6 +82,7 @@ pub fn run(
             if let Some(album_name) = album_folder_mode {
                 // --- Album Folder Mode ---
                 let mut completed = 0usize;
+                let mut files_removed_metadata_count = 0usize;
                 for (dir, files) in files_by_dir.iter() {
                     // Check if art already exists (either .jpg or .png)
                     let jpg_path = dir.join(format!("{}.jpg", album_name));
@@ -126,8 +125,7 @@ pub fn run(
                         let (processed_bytes, _) = process_cover_image(
                             image_bytes,
                             &convert_png_to_jpg,
-                            &jpeg_optimise,
-                            jpeg_quality,
+                            jpeg_optimise,
                             &png_opt,
                         )?;
 
@@ -142,6 +140,7 @@ pub fn run(
                                 eprintln!("Failed to remove embedded art from {:?}: {}", file, e);
                             } else {
                                 println!("Removed embedded art from {:?}", file);
+                                files_removed_metadata_count += 1;
                             }
                         }
                         completed += 1;
@@ -150,6 +149,7 @@ pub fn run(
                     }
                 }
                 println!("Summary: {} folder(s) finished.", completed);
+                println!("Summary: {} file(s) removed metadata.", files_removed_metadata_count);
             } else {
                 // --- Per-File Mode ---
                 let mut handles: HashMap<usize, std::thread::JoinHandle<()>> = HashMap::new();
@@ -174,7 +174,6 @@ pub fn run(
                             );
 
                             let convert_png_to_jpg = Arc::clone(&convert_png_to_jpg);
-                            let jpeg_optimise = Arc::clone(&jpeg_optimise);
                             let png_opt = Arc::clone(&png_opt);
 
                             let handle = std::thread::spawn(move || {
@@ -187,7 +186,6 @@ pub fn run(
                                     image_bytes,
                                     convert_png_to_jpg,
                                     jpeg_optimise,
-                                    jpeg_quality,
                                     png_opt,
                                 ) {
                                     eprintln!("Failed to embed cover: {}", e);
@@ -208,7 +206,7 @@ pub fn run(
                         Err(panic) => eprintln!("Job {} panicked: {:?}", job_id, panic),
                     }
                 }
-                println!("Summary: {} job(s) finished.", completed);
+                println!("Summary: {} file(s) finished.", completed);
             }
         }
         _ => eprintln!("No files were found or the input was invalid."),
