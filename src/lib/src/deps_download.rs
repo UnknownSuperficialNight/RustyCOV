@@ -3,7 +3,11 @@ use crate::helpers::set_executable_permissions;
 use crate::helpers::{get_current_dir, is_in_path};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs::File;
+#[cfg(all(unix, feature = "depend-on-ffmpeg"))]
+use std::io;
 use std::io::{Read, Write};
+#[cfg(all(unix, feature = "depend-on-ffmpeg"))]
+use std::path::Path;
 use thiserror::Error;
 use ureq::get;
 
