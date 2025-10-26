@@ -72,13 +72,13 @@ fn main() {
         Some(s) => s.as_str(),
         None => ".",
     };
-    let cov_address = matches.get_one::<String>("cov_address").map(|s| s.as_str());
-    let cover_image_name = matches.get_one::<String>("album_folder_mode").map(|s| s.as_str());
+    let cov_address = matches.get_one::<String>("cov_url").map(|s| s.as_str());
+    let cover_image_name = matches.get_one::<String>("album_mode").map(|s| s.as_str());
 
     match run(
         input,
         cov_address,
-        matches.get_flag("convert_png_to_jpg"),
+        matches.get_flag("png_to_jpeg"),
         matches.get_one::<u8>("jpeg_optimise").copied(),
         matches.get_flag("png_optimise"),
         cover_image_name,
