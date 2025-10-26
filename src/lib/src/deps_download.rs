@@ -41,7 +41,7 @@ impl DependencyPaths {
 }
 
 #[derive(Error, Debug)]
-enum DownloadError {
+pub enum DownloadError {
     #[error("HTTP request failed: {0}")]
     Request(#[from] ureq::Error),
     #[error("I/O error: {0}")]
@@ -77,7 +77,8 @@ pub fn download_and_extract_deps() -> Result<DependencyPaths, Box<dyn std::error
     #[cfg(all(unix, feature = "depend-on-ffmpeg"))]
     const FFMPEG_ARCHIVE: &str = "ffmpeg.tar.xz";
     #[cfg(all(unix, feature = "depend-on-ffmpeg"))]
-    const FFMPEG_URL: &str = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz";
+    const FFMPEG_URL: &str =
+        "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz";
     #[cfg(all(unix, feature = "depend-on-ffmpeg"))]
     const FFMPEG_FILES: [&str; 2] = ["ffmpeg", "ffprobe"];
 
@@ -170,7 +171,11 @@ pub fn download_and_extract_deps() -> Result<DependencyPaths, Box<dyn std::error
 /// * `files_to_extract` - Slice of filenames to extract from within the archive.
 /// * `output_dir` - Directory where the extracted files will be saved.
 #[cfg(all(unix, feature = "depend-on-ffmpeg"))]
-fn extract_selected_files(archive_path: &Path, files_to_extract: &[&str], output_dir: &Path) -> Result<(), ExtractError> {
+fn extract_selected_files(
+    archive_path: &Path,
+    files_to_extract: &[&str],
+    output_dir: &Path,
+) -> Result<(), ExtractError> {
     use std::fs::{self, File};
     let file = File::open(archive_path)?;
     let decompressor = xz2::read::XzDecoder::new(file);
@@ -202,7 +207,11 @@ fn extract_selected_files(archive_path: &Path, files_to_extract: &[&str], output
 /// * `files_to_extract` - Slice of filenames to extract from within the archive.
 /// * `output_dir` - Directory where the extracted files will be saved.
 #[cfg(all(windows, feature = "depend-on-ffmpeg"))]
-fn extract_selected_files(archive_path: &Path, files_to_extract: &[&str], output_dir: &Path) -> Result<(), ExtractError> {
+fn extract_selected_files(
+    archive_path: &Path,
+    files_to_extract: &[&str],
+    output_dir: &Path,
+) -> Result<(), ExtractError> {
     use std::fs::File;
 
     use zip::ZipArchive;
@@ -214,7 +223,8 @@ fn extract_selected_files(archive_path: &Path, files_to_extract: &[&str], output
         let mut entry = archive.by_index(i)?;
         let name = entry.name();
         if files_to_extract.iter().any(|wanted| name.ends_with(wanted)) {
-            let out_path = output_dir.join(Path::new(name).file_name().unwrap_or_else(|| std::ffi::OsStr::new(name)));
+            let out_path = output_dir
+                .join(Path::new(name).file_name().unwrap_or_else(|| std::ffi::OsStr::new(name)));
             let mut out_file = File::create(&out_path)?;
             std::io::copy(&mut entry, &mut out_file)?;
         }
@@ -235,7 +245,12 @@ fn extract_selected_files(archive_path: &Path, files_to_extract: &[&str], output
 fn download_with_progress(url: &str, out_path: &str) -> Result<(), DownloadError> {
     let (headers, body) = get(url).call()?.into_parts();
 
-    let total_size = headers.headers.get("Content-Length").and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u64>().ok()).ok_or(DownloadError::HeaderParse)?;
+    let total_size = headers
+        .headers
+        .get("Content-Length")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<u64>().ok())
+        .ok_or(DownloadError::HeaderParse)?;
 
     let mut file = File::create(out_path)?;
     let mut reader = body.into_reader();

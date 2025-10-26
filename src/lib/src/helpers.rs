@@ -2,7 +2,10 @@ use std::env;
 use std::io::Read;
 use std::path::PathBuf;
 
+use indicatif::{ProgressBar, ProgressStyle};
 use ureq::get;
+
+use crate::deps_download::DownloadError;
 
 /// Checks if a command is in the user's PATH (environmental variable).
 ///
@@ -81,15 +84,42 @@ pub fn set_executable_permissions(path: &std::path::Path) -> std::io::Result<()>
 /// # Arguments
 ///
 /// * `image_url` - The URL of the image to download.
-pub fn download_image(image_url: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let response = get(image_url).call()?;
-    if response.status() != 200 {
-        return Err(format!("Failed to download image: HTTP {}", response.status()).into());
+pub fn download_image(image_url: &str) -> Result<Vec<u8>, DownloadError> {
+    let (headers, body) = get(image_url).call()?.into_parts();
+
+    let total_size = headers
+        .headers
+        .get("Content-Length")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<u64>().ok())
+        .ok_or(DownloadError::HeaderParse)?;
+
+    let mut image_data = Vec::with_capacity(total_size as usize);
+    let mut reader = body.into_reader();
+    let mut buffer = [0; 8192];
+    let mut downloaded = 0u64;
+
+    let pb = ProgressBar::new(total_size);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {binary_bytes_per_sec} {bar:40} {binary_bytes} / {binary_total_bytes}")
+            .expect("Failed to create ProgressStyle object")
+            .progress_chars("#-"),
+    );
+
+    loop {
+        match reader.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => {
+                image_data.extend_from_slice(&buffer[..n]);
+                downloaded += n as u64;
+                pb.set_position(downloaded);
+            }
+            Err(e) => return Err(e.into()),
+        }
     }
 
-    let mut image_data = Vec::new();
-    let (_, body) = response.into_parts();
-    body.into_reader().read_to_end(&mut image_data)?;
+    pb.finish();
 
     Ok(image_data)
 }

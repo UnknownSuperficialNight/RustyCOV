@@ -3,8 +3,8 @@ members = ["src/lib", "src/bin"]
 resolver = "3"
 
 [profile.release]
-opt-level = 3     #'z'   # Optimize for size
-lto = true        # Enable link-time optimization
-codegen-units = 1 # Reduce number of codegen units to increase optimizations
+opt-level = 3     #'z'   # Optimise for size
+lto = true        # Enable link-time optimisation
+codegen-units = 1 # Reduce number of codegen units to increase optimisations
 panic = 'abort'   # Abort on panic
 strip = true      # Strip symbols from binary*

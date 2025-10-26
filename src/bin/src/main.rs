@@ -9,26 +9,26 @@ fn main() {
                 .long("input")
                 .num_args(1)
                 .value_name("input-string")
-                .help("Input directory or file to process").long_help("Input a directory that will be recursively processed or a single file to process")
-                .required(true),
+                .help("Input directory or file to process")
+                .long_help("Input a directory that will be recursively processed or a single file to process"),
         )
         .arg(
-                Arg::new("cov_address")
-                    .short('c')
-                    .long("cov-address-url")
-                    .num_args(1)
-                    .value_name("COV_ADDRESS_URL")
-                    .help("Address of the COV website to open on launch.")
-                    .long_help("Enter the URL of the COV website that you want to be opened when the application launches."),
+            Arg::new("cov_address")
+                .short('c')
+                .long("cov-address-url")
+                .num_args(1)
+                .value_name("COV_ADDRESS_URL")
+                .help("Address of the COV website to open on launch.")
+                .long_help("Enter the URL of the COV website that you want to be opened when the application launches."),
             )
         .arg(
-                Arg::new("album_folder_mode")
-                    .short('a')
-                    .long("album-folder-mode")
-                    .num_args(1)
-                    .value_name("COVER_IMAGE_NAME")
-                    .help("Write images to folder and remove embedded images from all files within the directory.")
-                    .long_help("This mode writes the selected image into the directory with the associated song then removes embedded images from other music files in the associated directory, resulting in each folder having a single album cover image."),
+            Arg::new("album_folder_mode")
+                .short('a')
+                .long("album-folder-mode")
+                .num_args(1)
+                .value_name("COVER_IMAGE_NAME")
+                .help("Write images to folder and remove embedded images from all files within the directory.")
+                .long_help("This mode writes the selected image into the directory with the associated song then removes embedded images from other music files in the associated directory, resulting in each folder having a single album cover image."),
             );
 
     // Conditionally add arguments
@@ -72,23 +72,23 @@ fn main() {
 
     let matches = cmd.get_matches();
 
-    if let Some(raw) = matches.get_one::<String>("input_string") {
-        let cov_address = matches.get_one::<String>("cov_address").map(|s| s.as_str());
-        let cover_image_name = matches.get_one::<String>("album_folder_mode").map(|s| s.as_str());
+    let input = match matches.get_one::<String>("input_string") {
+        Some(s) => s.as_str(),
+        None => ".",
+    };
+    let cov_address = matches.get_one::<String>("cov_address").map(|s| s.as_str());
+    let cover_image_name = matches.get_one::<String>("album_folder_mode").map(|s| s.as_str());
 
-        match run(
-            raw,
-            cov_address,
-            matches.get_flag("convert_png_to_jpg"),
-            matches.get_flag("jpeg_optimise"),
-            matches.get_one::<u8>("jpeg_quality").copied(),
-            matches.get_flag("png_optimise"),
-            cover_image_name,
-        ) {
-            Ok(_) => {}
-            Err(e) => eprintln!("Failed to run application: {}", e),
-        }
-    } else {
-        eprintln!("No input string provided.");
+    match run(
+        input,
+        cov_address,
+        matches.get_flag("convert_png_to_jpg"),
+        matches.get_flag("jpeg_optimise"),
+        matches.get_one::<u8>("jpeg_quality").copied(),
+        matches.get_flag("png_optimise"),
+        cover_image_name,
+    ) {
+        Ok(_) => {}
+        Err(e) => eprintln!("Failed to run application: {}", e),
     }
 }

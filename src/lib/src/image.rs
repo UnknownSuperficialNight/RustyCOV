@@ -79,7 +79,6 @@ pub(crate) fn optimise_jpeg(
     let mut jpeg_bytes = Vec::new();
     {
         let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_bytes, quality);
-        println!("Optimising JPEG");
         encoder.encode_image(&img)?;
     }
 
