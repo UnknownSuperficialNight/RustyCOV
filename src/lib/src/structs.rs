@@ -1,7 +1,7 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
-
 use walkdir::WalkDir;
 
 use crate::deps_download::DependencyPaths;
@@ -60,19 +60,15 @@ impl FileFormat {
 
 /// Holds the list of files (with detected format) for the supplied input.
 pub struct RustyCov<'a> {
-    /// `None` → no input processed yet; `Some(vec)` → list of files.
-    pub files: Option<Vec<PathBuf>>,
+    /// `None` → no input processed yet; `Some(map)` → files grouped by parent directory.
+    pub files: Option<HashMap<PathBuf, Vec<PathBuf>>>,
     pub deps: Option<DependencyPaths>,
     pub cov_address: Option<&'a str>,
 }
 
 impl<'a> Default for RustyCov<'a> {
     fn default() -> Self {
-        Self {
-            files: None,
-            deps: None,
-            cov_address: Some("https://covers.musichoarders.xyz"),
-        }
+        Self { files: None, deps: None, cov_address: Some("https://covers.musichoarders.xyz") }
     }
 }
 
@@ -83,26 +79,28 @@ impl<'a> RustyCov<'a> {
         let path_str = input.into();
         let path = PathBuf::from(&path_str);
 
-        let mut collected = Vec::new();
+        let mut files_by_dir: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
 
         if path.is_dir() {
             // Walk the directory recursively, keeping only known formats.
-            collected.extend(
-                WalkDir::new(&path)
-                    .into_iter()
-                    .filter_map(|e| e.ok())
-                    .filter(|e| e.file_type().is_file())
-                    .filter_map(|entry| {
-                        let p = entry.path().to_path_buf();
-                        let fmt = FileFormat::from_path(&p);
-                        if fmt.is_known() { Some(p) } else { None }
-                    }),
-            );
+            for entry in WalkDir::new(&path)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+            {
+                let p = entry.path().to_path_buf();
+                let fmt = FileFormat::from_path(&p);
+                if fmt.is_known() {
+                    let parent = p.parent().unwrap_or(Path::new("")).to_path_buf();
+                    files_by_dir.entry(parent).or_default().push(p);
+                }
+            }
         } else if path.is_file() {
             // Single file case – keep it only if it matches a known format.
             let fmt = FileFormat::from_path(&path);
             if fmt.is_known() {
-                collected.push(path);
+                let parent = path.parent().unwrap_or(Path::new("")).to_path_buf();
+                files_by_dir.entry(parent).or_default().push(path);
             }
         } else {
             eprintln!("❌ Path '{}' does not exist.", path_str);
@@ -111,8 +109,8 @@ impl<'a> RustyCov<'a> {
         }
 
         // If we gathered at least one supported file, store it; otherwise keep None.
-        if !collected.is_empty() {
-            self.files = Some(collected);
+        if !files_by_dir.is_empty() {
+            self.files = Some(files_by_dir);
         }
     }
 }
@@ -131,6 +129,7 @@ pub struct ReleaseInfo {
     pub title: String,
     pub artist: String,
     pub date: String,
+    pub tracks: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, Default)]
