@@ -1134,7 +1134,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rusty_cov_bin"
+name = "rusty_cov_cli"
 version = "0.0.1"
 dependencies = [
  "clap",

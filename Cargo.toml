@@ -2,6 +2,14 @@
 members = ["src/lib", "src/bin"]
 resolver = "3"
 
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+keywords = ["cover-art", "metadata", "image-optimisation", "audio-processing", "library"]
+categories = ["command-line-utilities", "development-tools"]
+authors = ["UnknownSuperficialNight"]
+
 [profile.release]
 opt-level = 3     #'z'   # Optimise for size
 lto = true        # Enable link-time optimisation

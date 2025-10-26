@@ -1,7 +1,9 @@
 [package]
-name = "rusty_cov_bin"
+name = "rusty_cov_cli"
 version = "0.0.1"
-edition = "2024"
+description = "Command-line interface for the RustyCOV tool"
+license.workspace = true
+edition.workspace = true
 
 [dependencies]
 rusty_cov = { path = "../lib", default-features = false }

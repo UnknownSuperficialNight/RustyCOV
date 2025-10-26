@@ -1,7 +1,10 @@
 [package]
 name = "rusty_cov"
 version = "0.0.1"
-edition = "2024"
+authors = ["UnknownSuperficialNight"]
+description = "A Rust crate for downloading and embedding cover art with image optimisation support"
+license.workspace = true
+edition.workspace = true
 
 [dependencies]
 walkdir = "2.5.0"

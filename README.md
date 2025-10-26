@@ -25,6 +25,10 @@ A command-line tool for automatically finding and embedding album covers in audi
 - FLV
 - WEBM
 
+## Supported Image Formats
+- PNG
+- JPEG
+
 ## Installation
 1. Ensure [Rust](https://rust-lang.org) is installed
 2. Clone the repository
