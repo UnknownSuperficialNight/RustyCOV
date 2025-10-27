@@ -3,7 +3,7 @@
 A command-line tool for automatically finding and embedding album covers in audio files. This tool integrates with the COV website to discover covers, supports multiple file formats, and provides options for image optimisations.
 
 ## Showcase Album folder mode
-[![Watch the video](https://img.youtube.com/vi/UN-AW4OSk3Y/maxresdefault.jpg)](https://youtu.be/UN-AW4OSk3Y)
+[![Watch the video](https://img.youtube.com/vi/JHLt1CdCWuk/maxresdefault.jpg)](https://youtu.be/JHLt1CdCWuk)
 
 
 ## Features
