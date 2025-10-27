@@ -141,7 +141,9 @@ pub fn remove_embedded_art_from_file(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut tagged_file = Probe::open(file_path)?.read()?;
     if let Some(tag) = tagged_file.primary_tag_mut() {
-        tag.remove_picture_type(PictureType::CoverFront);
+        while !tag.pictures().is_empty() {
+            tag.remove_picture(0);
+        }
         tag.save_to_path(file_path, WriteOptions::new().respect_read_only(false))?;
     }
     Ok(())
