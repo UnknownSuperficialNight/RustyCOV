@@ -1,5 +1,6 @@
 use std::env;
-use std::io::Read;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use indicatif::{ProgressBar, ProgressStyle};
@@ -75,45 +76,87 @@ pub fn set_executable_permissions(path: &std::path::Path) -> std::io::Result<()>
     std::fs::set_permissions(path, perms)
 }
 
-/// Downloads an image from the given URL and returns the image bytes.
+#[derive(Debug)]
+pub enum DownloadTarget<'a> {
+    File(&'a str),
+    Memory,
+}
+
+/// Downloads a file from the specified URL and saves it to the given output path or returns the
+/// bytes.
 ///
-/// This function sends an HTTP GET request to the specified `image_url` using `ureq::get`
-/// and reads the response body into a vector of bytes. If the HTTP request fails, or if the
-/// response status is not 200, or if reading the response body fails, an error is returned.
+/// This function sends an HTTP GET request to the specified `url` using `ureq::get`
+/// and reads the response body into a vector of bytes or writes it to a file.
+/// If the HTTP request fails, or if the response status is not 200, or if reading the response body
+/// fails, an error is returned.
 ///
 /// # Arguments
 ///
-/// * `image_url` - The URL of the image to download.
-pub fn download_image(image_url: &str) -> Result<Vec<u8>, DownloadError> {
-    let (headers, body) = get(image_url).call()?.into_parts();
+/// * `url` - URL of the file to download.
+/// * `target` - The target where the downloaded file will be saved. If `Memory`, returns the bytes.
+pub fn download_with_progress(
+    url: &str,
+    target: DownloadTarget,
+) -> Result<Option<Vec<u8>>, DownloadError> {
+    let (headers, body) = get(url).call()?.into_parts();
 
     let total_size = headers
         .headers
         .get("Content-Length")
         .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.parse::<u64>().ok())
-        .ok_or(DownloadError::HeaderParse)?;
+        .and_then(|s| s.parse::<u64>().ok());
 
-    let mut image_data = Vec::with_capacity(total_size as usize);
     let mut reader = body.into_reader();
     let mut buffer = [0; 8192];
-    let mut downloaded = 0u64;
 
-    let pb = ProgressBar::new(total_size);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("[{elapsed_precise}] {binary_bytes_per_sec} {bar:40} {binary_bytes} / {binary_total_bytes}")
-            .expect("Failed to create ProgressStyle object")
-            .progress_chars("#-"),
-    );
+    // Prepare output sink and buffer if needed
+    let mut file: Option<File> = None;
+    let mut memory_buffer: Option<Vec<u8>> = None;
 
+    match target {
+        DownloadTarget::File(path) => {
+            file = Some(File::create(path)?);
+        }
+        DownloadTarget::Memory => {
+            memory_buffer = Some(match total_size {
+                Some(size) => Vec::with_capacity(size as usize),
+                None => Vec::new(),
+            });
+        }
+    }
+
+    // Setup progress bar
+    let pb = if let Some(total) = total_size {
+        let pb = ProgressBar::new(total);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("[{elapsed_precise}] {binary_bytes_per_sec} {bar:40} {binary_bytes} / {binary_total_bytes}")
+                .expect("Failed to create ProgressStyle object")
+                .progress_chars("#-"),
+        );
+        pb
+    } else {
+        let pb = ProgressBar::new_spinner();
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("[{elapsed_precise}] {spinner} Received {binary_bytes}")
+                .expect("Failed to create ProgressStyle object")
+                .progress_chars("#-"),
+        );
+        pb
+    };
+
+    // Read loop
     loop {
         match reader.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => {
-                image_data.extend_from_slice(&buffer[..n]);
-                downloaded += n as u64;
-                pb.set_position(downloaded);
+                if let Some(f) = file.as_mut() {
+                    f.write_all(&buffer[..n])?;
+                } else if let Some(mem) = memory_buffer.as_mut() {
+                    mem.extend_from_slice(&buffer[..n]);
+                }
+                pb.inc(n as u64);
             }
             Err(e) => return Err(e.into()),
         }
@@ -121,7 +164,10 @@ pub fn download_image(image_url: &str) -> Result<Vec<u8>, DownloadError> {
 
     pb.finish();
 
-    Ok(image_data)
+    match memory_buffer {
+        Some(bytes) => Ok(Some(bytes)),
+        None => Ok(None),
+    }
 }
 
 /// Extracts the first contiguous digit substring from `s`

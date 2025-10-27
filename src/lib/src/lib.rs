@@ -16,7 +16,7 @@ use std::thread::{JoinHandle, spawn};
 use serde_json::Value;
 
 use crate::deps_download::download_and_extract_deps;
-use crate::helpers::download_image;
+use crate::helpers::{DownloadTarget, download_with_progress};
 use crate::lofty::{embed_cover_image, process_cover_image, remove_embedded_art_from_file};
 use crate::structs::{CoverInfo, Picked, ReleaseInfo, RustyCov};
 
@@ -138,8 +138,15 @@ pub fn run(
 
                         let handle = spawn(move || {
                             // Download the image
-                            let image_bytes = match download_image(&picked.big_cover_url) {
-                                Ok(bytes) => bytes,
+                            let image_bytes = match download_with_progress(
+                                &picked.big_cover_url,
+                                DownloadTarget::Memory,
+                            ) {
+                                Ok(Some(bytes)) => bytes,
+                                Ok(None) => {
+                                    eprintln!("Unexpected None");
+                                    return;
+                                }
                                 Err(e) => {
                                     eprintln!("Failed to download image: {}", e);
                                     return;
@@ -232,8 +239,20 @@ pub fn run(
 
                             let handle = spawn(move || {
                                 // Download the image using ureq
-                                let image_bytes = download_image(&picked.big_cover_url)
-                                    .expect("Failed to Download Image");
+                                let image_bytes = match download_with_progress(
+                                    &picked.big_cover_url,
+                                    DownloadTarget::Memory,
+                                ) {
+                                    Ok(Some(bytes)) => bytes,
+                                    Ok(None) => {
+                                        eprintln!("Unexpected None");
+                                        return;
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to download image: {}", e);
+                                        return;
+                                    }
+                                };
 
                                 if let Err(e) = embed_cover_image(
                                     path,
@@ -269,12 +288,12 @@ pub fn run(
             // Print running summary at the end
             if album_folder_mode.is_some() {
                 println!(
-                    "Total: {} folder(s) finished, {} file(s) removed metadata.",
+                    "\nTotal: {} folder(s) finished, {} file(s) removed metadata.",
                     folders_edited.load(Ordering::SeqCst),
                     files_edited.load(Ordering::SeqCst)
                 );
             } else {
-                println!("Total: {} file(s) finished.", files_edited.load(Ordering::SeqCst));
+                println!("\nTotal: {} file(s) finished.", files_edited.load(Ordering::SeqCst));
             }
         }
         _ => eprintln!("No files were found or the input was invalid."),

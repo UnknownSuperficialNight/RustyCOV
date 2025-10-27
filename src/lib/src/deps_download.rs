@@ -1,13 +1,9 @@
-use std::fs::File;
 #[cfg(all(unix, feature = "depend-on-ffmpeg"))]
 use std::io;
-use std::io::{Read, Write};
 #[cfg(all(unix, feature = "depend-on-ffmpeg"))]
 use std::path::Path;
 
-use indicatif::{ProgressBar, ProgressStyle};
 use thiserror::Error;
-use ureq::get;
 #[cfg(all(unix, feature = "depend-on-ffmpeg"))]
 use xz2::stream::Error as XzError;
 #[cfg(all(windows, feature = "depend-on-ffmpeg"))]
@@ -15,7 +11,7 @@ use zip::result::ZipError;
 
 #[cfg(unix)]
 use crate::helpers::set_executable_permissions;
-use crate::helpers::{get_current_dir, is_in_path};
+use crate::helpers::{DownloadTarget, download_with_progress, get_current_dir, is_in_path};
 
 #[derive(Debug, Clone)]
 pub struct DependencyPaths {
@@ -46,8 +42,8 @@ pub enum DownloadError {
     Request(#[from] ureq::Error),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Header parsing error")]
-    HeaderParse,
+    #[error("Downloaded data is empty")]
+    EmptyDownload,
 }
 
 #[cfg(all(unix, feature = "depend-on-ffmpeg"))]
@@ -118,7 +114,10 @@ pub fn download_and_extract_deps() -> Result<DependencyPaths, Box<dyn std::error
 
         if need_download {
             println!("Downloading ffmpeg archive...");
-            download_with_progress(FFMPEG_URL, archive_path.to_str().unwrap())?;
+            download_with_progress(
+                FFMPEG_URL,
+                DownloadTarget::File(archive_path.to_str().unwrap()),
+            )?;
 
             println!("Extracting ffmpeg/ffprobe...");
             extract_selected_files(&archive_path, &FFMPEG_FILES, &bin_dir)?;
@@ -146,7 +145,7 @@ pub fn download_and_extract_deps() -> Result<DependencyPaths, Box<dyn std::error
     let covit_out_path = bin_dir.join(COVIT_BIN);
     if !covit_out_path.exists() && !is_in_path(COVIT_BIN) {
         println!("Downloading covit...");
-        download_with_progress(COVIT_URL, covit_out_path.to_str().unwrap())?;
+        download_with_progress(COVIT_URL, DownloadTarget::File(covit_out_path.to_str().unwrap()))?;
         #[cfg(unix)]
         set_executable_permissions(&covit_out_path)?;
     }
@@ -232,51 +231,5 @@ fn extract_selected_files(
     if let Err(err) = fs::remove_file(archive_path) {
         eprintln!("Error deleting file: {}", err);
     }
-    Ok(())
-}
-
-/// Downloads a file from the specified URL and saves it to the given output path.
-/// Shows progress during the download.
-///
-/// # Arguments
-///
-/// * `url` - URL of the file to download.
-/// * `out_path` - Path where the downloaded file will be saved.
-fn download_with_progress(url: &str, out_path: &str) -> Result<(), DownloadError> {
-    let (headers, body) = get(url).call()?.into_parts();
-
-    let total_size = headers
-        .headers
-        .get("Content-Length")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.parse::<u64>().ok())
-        .ok_or(DownloadError::HeaderParse)?;
-
-    let mut file = File::create(out_path)?;
-    let mut reader = body.into_reader();
-    let mut buffer = [0; 8192];
-    let mut downloaded = 0u64;
-
-    let pb = ProgressBar::new(total_size);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("[{elapsed_precise}] {binary_bytes_per_sec} {bar:40} {binary_bytes} / {binary_total_bytes}")
-            .expect("Failed to create ProgressStyle object")
-            .progress_chars("#-"),
-    );
-
-    loop {
-        match reader.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(n) => {
-                file.write_all(&buffer[..n])?;
-                downloaded += n as u64;
-                pb.set_position(downloaded);
-            }
-            Err(e) => return Err(e.into()),
-        }
-    }
-
-    pb.finish();
     Ok(())
 }
