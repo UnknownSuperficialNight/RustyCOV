@@ -1,7 +1,9 @@
+#[cfg_attr(not(any(feature = "jpeg-opt", feature = "png-opt")), expect(unused_imports))]
 use clap::{Arg, ArgAction, command};
 use rusty_cov::run;
 
 fn main() {
+    #[cfg_attr(not(any(feature = "jpeg-opt", feature = "png-opt")), expect(unused_mut))]
     let mut cmd = command!()
         .arg(
             Arg::new("input_string")

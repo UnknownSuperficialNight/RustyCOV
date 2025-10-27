@@ -57,8 +57,7 @@ pub fn embed_cover_image<P: AsRef<Path>>(
     };
 
     // Process the image and get the processed bytes and Picture
-    let (_, mut picture) =
-        process_cover_image(image_bytes, &convert_png_to_jpg, jpeg_optimise, &png_opt)?;
+    let (_, mut picture) = process_cover_image(image_bytes, &convert_png_to_jpg, jpeg_optimise, &png_opt)?;
 
     picture.set_pic_type(PictureType::CoverFront);
 
@@ -88,16 +87,19 @@ pub fn embed_cover_image<P: AsRef<Path>>(
 /// * `png_opt` - Whether to optimise PNG images.
 pub fn process_cover_image(
     image_bytes: Vec<u8>,
-    convert_png_to_jpg: &Arc<AtomicBool>,
-    jpeg_optimise: Option<u8>,
-    png_opt: &Arc<AtomicBool>,
+    #[cfg_attr(not(feature = "jpeg-opt"), expect(unused_variables))] convert_png_to_jpg: &Arc<AtomicBool>,
+    #[cfg_attr(not(feature = "jpeg-opt"), expect(unused_variables))] jpeg_optimise: Option<u8>,
+    #[cfg_attr(not(feature = "png-opt"), expect(unused_variables))] png_opt: &Arc<AtomicBool>,
 ) -> Result<(Vec<u8>, Picture), Box<dyn std::error::Error>> {
     use std::io::Cursor;
+    #[cfg_attr(not(any(feature = "jpeg-opt", feature = "png-opt")), expect(unused_imports))]
     use std::sync::atomic::Ordering;
 
     use lofty::picture::{MimeType, Picture};
 
     let mut cursor = Cursor::new(image_bytes);
+
+    #[cfg_attr(not(any(feature = "jpeg-opt", feature = "png-opt")), expect(unused_mut))]
     let mut picture = Picture::from_reader(&mut cursor)?;
 
     match picture.mime_type() {
@@ -136,9 +138,7 @@ pub fn process_cover_image(
 /// # Arguments
 ///
 /// * `file_path` - Path to the audio file.
-pub fn remove_embedded_art_from_file(
-    file_path: &PathBuf,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn remove_embedded_art_from_file(file_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     let mut tagged_file = Probe::open(file_path)?.read()?;
     if let Some(tag) = tagged_file.primary_tag_mut() {
         while !tag.pictures().is_empty() {
