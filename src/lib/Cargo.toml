@@ -15,14 +15,16 @@ serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.145", default-features = false, features = ["std"] }
 lofty = "0.22.4"
 
-oxipng = { version = "9.1.5", optional = true, features = ["parallel", "filetime"], default-features = false }
-image =  { version = "0.25.8", optional = true, features = ["rayon", "jpeg", "png"], default-features = false }
+oxipng = { version = "9.1.5", optional = true, features = ["filetime"], default-features = false }
+image =  { version = "0.25.8", optional = true, features = ["jpeg", "png"], default-features = false }
+rayon = { version = "1.11.0", optional = true }
 
 [features]
-default = ["png-opt", "jpeg-opt"]
+default = ["png-opt", "jpeg-opt", "parallel"]
 
 png-opt  = ["oxipng"]
 jpeg-opt = ["image"]
+parallel = ["image/rayon", "oxipng/parallel", "rayon"]
 depend-on-ffmpeg = []
 
 [target.'cfg(windows)'.dependencies]

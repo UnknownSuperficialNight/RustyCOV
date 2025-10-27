@@ -5,6 +5,7 @@ use serde::Deserialize;
 use walkdir::WalkDir;
 
 use crate::deps_download::DependencyPaths;
+use crate::helpers::extract_first_number;
 
 /// Supported audio/video file extensions.
 #[derive(Debug, PartialEq, Eq)]
@@ -88,30 +89,62 @@ impl<'a> RustyCov<'a> {
                 .filter_map(|e| e.ok())
                 .filter(|e| e.file_type().is_file())
             {
-                let p = entry.path().to_path_buf();
-                let fmt = FileFormat::from_path(&p);
-                if fmt.is_known() {
-                    let parent = p.parent().unwrap_or(Path::new("")).to_path_buf();
-                    files_by_dir.entry(parent).or_default().push(p);
-                }
+                add_file_to_map(&mut files_by_dir, entry.path());
             }
         } else if path.is_file() {
             // Single file case – keep it only if it matches a known format.
-            let fmt = FileFormat::from_path(&path);
-            if fmt.is_known() {
-                let parent = path.parent().unwrap_or(Path::new("")).to_path_buf();
-                files_by_dir.entry(parent).or_default().push(path);
-            }
+            add_file_to_map(&mut files_by_dir, &path);
         } else {
             eprintln!("❌ Path '{}' does not exist.", path_str);
             self.files = None;
             return;
         }
 
+        // Sort files in each directory according numeric ordering rule
+        for files in files_by_dir.values_mut() {
+            files.sort_by(|a, b| {
+                let a_name = a.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+                let b_name = b.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+
+                // Extract first digit substring and its length from a_name
+                let a_num_opt = extract_first_number(a_name);
+                let b_num_opt = extract_first_number(b_name);
+
+                match (a_num_opt, b_num_opt) {
+                    (Some((a_num, a_len)), Some((b_num, b_len))) => {
+                        match a_num.cmp(&b_num) {
+                            std::cmp::Ordering::Equal => b_len.cmp(&a_len), /* longer digit */
+                            // substring (leading
+                            // zeros) first
+                            other => other,
+                        }
+                    }
+                    (Some(_), None) => std::cmp::Ordering::Less, // numbers come before no numbers
+                    (None, Some(_)) => std::cmp::Ordering::Greater,
+                    (None, None) => a_name.cmp(b_name), // fallback lex order
+                }
+            });
+        }
+
         // If we gathered at least one supported file, store it; otherwise keep None.
         if !files_by_dir.is_empty() {
             self.files = Some(files_by_dir);
         }
+    }
+}
+
+/// Adds a file to the map grouped by its parent directory if the file's format is known.
+///
+/// 1. Determines the file's format using `FileFormat::from_path`
+/// 2. Checks if the format is known via `is_known()`
+/// 3. If both conditions are met, adds the file to the corresponding directory entry in the
+///    HashMap. Files without parent directories (e.g., root path) are skipped.
+fn add_file_to_map(files_by_dir: &mut HashMap<PathBuf, Vec<PathBuf>>, file_path: &Path) {
+    let fmt = FileFormat::from_path(file_path);
+    if fmt.is_known() &&
+        let Some(parent) = file_path.parent()
+    {
+        files_by_dir.entry(parent.to_path_buf()).or_default().push(file_path.to_path_buf());
     }
 }
 

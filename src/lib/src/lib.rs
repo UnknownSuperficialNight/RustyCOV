@@ -7,9 +7,11 @@ pub mod lofty;
 pub mod structs;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::process::Command;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread::{JoinHandle, spawn};
 
 use serde_json::Value;
 
@@ -77,13 +79,17 @@ pub fn run(
         return Ok(());
     }
 
+    let folders_edited = Arc::new(AtomicUsize::new(0));
+    let files_edited = Arc::new(AtomicUsize::new(0));
+
     match &mut rusty_cov_global.files {
         Some(files_by_dir) if !files_by_dir.is_empty() => {
-            if let Some(album_name) = album_folder_mode {
-                // --- Album Folder Mode ---
-                let mut completed = 0usize;
-                let mut files_removed_metadata_count = 0usize;
-                for (dir, files) in files_by_dir.iter() {
+            let handles: Arc<Mutex<HashMap<usize, JoinHandle<()>>>> =
+                Arc::new(Mutex::new(HashMap::new()));
+            let mut job_id = 0usize;
+
+            for (dir, files) in files_by_dir.iter_mut() {
+                if let Some(album_name) = album_folder_mode {
                     // Check if art already exists (either .jpg or .png)
                     let jpg_path = dir.join(format!("{}.jpg", album_name));
                     let png_path = dir.join(format!("{}.png", album_name));
@@ -94,7 +100,7 @@ pub fn run(
 
                     // Try each file in the folder until run_covit succeeds
                     let mut picked_opt = None;
-                    for file in files {
+                    for file in &mut *files {
                         if let Some(picked) = run_covit(
                             rusty_cov_global.deps.as_ref().unwrap().covit.as_str(),
                             rusty_cov_global.cov_address.unwrap(),
@@ -119,42 +125,89 @@ pub fn run(
                             picked.big_cover_url
                         );
 
-                        // Download the image
-                        let image_bytes = download_image(&picked.big_cover_url)?;
+                        // Drain files here to transfer ownership to the thread
+                        let drained_files: Vec<PathBuf> = std::mem::take(files);
 
-                        let (processed_bytes, _) = process_cover_image(
-                            image_bytes,
-                            &convert_png_to_jpg,
-                            jpeg_optimise,
-                            &png_opt,
-                        )?;
+                        // Clone variables needed inside the thread
+                        let album_name = album_name.to_string();
+                        let convert_png_to_jpg = Arc::clone(&convert_png_to_jpg);
+                        let png_opt = Arc::clone(&png_opt);
+                        let dir = dir.clone();
+                        let folders_edited = Arc::clone(&folders_edited);
+                        let files_edited = Arc::clone(&files_edited);
 
-                        let art_path =
-                            dir.join(format!("{}.{}", album_name, picked.cover_info.format));
-                        std::fs::write(&art_path, &processed_bytes)?;
-                        println!("Saved album art to {:?}", art_path);
+                        let handle = spawn(move || {
+                            // Download the image
+                            let image_bytes = match download_image(&picked.big_cover_url) {
+                                Ok(bytes) => bytes,
+                                Err(e) => {
+                                    eprintln!("Failed to download image: {}", e);
+                                    return;
+                                }
+                            };
 
-                        // Remove embedded art from all files in this folder
-                        for file in files {
-                            if let Err(e) = remove_embedded_art_from_file(file) {
-                                eprintln!("Failed to remove embedded art from {:?}: {}", file, e);
-                            } else {
-                                println!("Removed embedded art from {:?}", file);
-                                files_removed_metadata_count += 1;
+                            let (processed_bytes, _) = match process_cover_image(
+                                image_bytes,
+                                &convert_png_to_jpg,
+                                jpeg_optimise,
+                                &png_opt,
+                            ) {
+                                Ok(res) => res,
+                                Err(e) => {
+                                    eprintln!("Failed to process cover image: {}", e);
+                                    return;
+                                }
+                            };
+
+                            let art_path =
+                                dir.join(format!("{}.{}", album_name, picked.cover_info.format));
+                            if let Err(e) = std::fs::write(&art_path, &processed_bytes) {
+                                eprintln!("Failed to save album art to {:?}: {}", art_path, e);
+                                return;
                             }
-                        }
-                        completed += 1;
+                            println!("Saved album art to {:?}", art_path);
+
+                            // Remove embedded art from all files in this folder
+                            #[cfg(feature = "parallel")]
+                            {
+                                use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+
+                                drained_files.par_iter().for_each(|file| {
+                                    if let Err(e) = remove_embedded_art_from_file(file) {
+                                        eprintln!(
+                                            "Failed to remove embedded art from {:?}: {}",
+                                            file, e
+                                        );
+                                    } else {
+                                        println!("Removed embedded art from {:?}", file);
+                                        files_edited.fetch_add(1, Ordering::SeqCst);
+                                    }
+                                });
+                            }
+                            #[cfg(not(feature = "parallel"))]
+                            {
+                                for file in drained_files {
+                                    if let Err(e) = remove_embedded_art_from_file(&file) {
+                                        eprintln!(
+                                            "Failed to remove embedded art from {:?}: {}",
+                                            file, e
+                                        );
+                                    } else {
+                                        println!("Removed embedded art from {:?}", file);
+                                        files_edited.fetch_add(1, Ordering::SeqCst);
+                                    }
+                                }
+                            }
+                            folders_edited.fetch_add(1, Ordering::SeqCst);
+                        });
+
+                        let mut handles_lock = handles.lock().unwrap();
+                        handles_lock.insert(job_id, handle);
+                        job_id += 1;
                     } else {
                         println!("No cover info found for folder {:?}", dir);
                     }
-                }
-                println!("Summary: {} folder(s) finished.", completed);
-                println!("Summary: {} file(s) removed metadata.", files_removed_metadata_count);
-            } else {
-                // --- Per-File Mode ---
-                let mut handles: HashMap<usize, std::thread::JoinHandle<()>> = HashMap::new();
-                let mut job_id = 0usize;
-                for (_dir, files) in files_by_dir.iter_mut() {
+                } else {
                     for path in files.drain(..) {
                         if let Some(picked) = run_covit(
                             rusty_cov_global.deps.as_ref().unwrap().covit.as_str(),
@@ -175,8 +228,9 @@ pub fn run(
 
                             let convert_png_to_jpg = Arc::clone(&convert_png_to_jpg);
                             let png_opt = Arc::clone(&png_opt);
+                            let files_edited = Arc::clone(&files_edited);
 
-                            let handle = std::thread::spawn(move || {
+                            let handle = spawn(move || {
                                 // Download the image using ureq
                                 let image_bytes = download_image(&picked.big_cover_url)
                                     .expect("Failed to Download Image");
@@ -189,24 +243,38 @@ pub fn run(
                                     png_opt,
                                 ) {
                                     eprintln!("Failed to embed cover: {}", e);
+                                } else {
+                                    files_edited.fetch_add(1, Ordering::SeqCst);
                                 }
                             });
-                            handles.insert(job_id, handle);
+                            let mut handles_lock = handles.lock().unwrap();
+                            handles_lock.insert(job_id, handle);
                             job_id += 1;
                         } else {
                             println!("No cover info found for {:?}", path);
                         }
                     }
                 }
+            }
 
-                let mut completed = 0usize;
-                for (job_id, handle) in handles {
-                    match handle.join() {
-                        Ok(_) => completed += 1,
-                        Err(panic) => eprintln!("Job {} panicked: {:?}", job_id, panic),
-                    }
+            // Wait for all threads to finish
+            let mut handles_lock = handles.lock().unwrap();
+            for (job_id, handle) in handles_lock.drain() {
+                match handle.join() {
+                    Ok(_) => {}
+                    Err(panic) => eprintln!("Job {} panicked: {:?}", job_id, panic),
                 }
-                println!("Summary: {} file(s) finished.", completed);
+            }
+
+            // Print running summary at the end
+            if album_folder_mode.is_some() {
+                println!(
+                    "Total: {} folder(s) finished, {} file(s) removed metadata.",
+                    folders_edited.load(Ordering::SeqCst),
+                    files_edited.load(Ordering::SeqCst)
+                );
+            } else {
+                println!("Total: {} file(s) finished.", files_edited.load(Ordering::SeqCst));
             }
         }
         _ => eprintln!("No files were found or the input was invalid."),

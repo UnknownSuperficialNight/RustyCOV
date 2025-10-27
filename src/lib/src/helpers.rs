@@ -123,3 +123,27 @@ pub fn download_image(image_url: &str) -> Result<Vec<u8>, DownloadError> {
 
     Ok(image_data)
 }
+
+/// Extracts the first contiguous digit substring from `s`
+/// Returns Some((number_value, digit_length)) or None if no digits found.
+pub fn extract_first_number(s: &str) -> Option<(usize, usize)> {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i].is_ascii_digit() {
+            let start = i;
+            while i < bytes.len() && bytes[i].is_ascii_digit() {
+                i += 1;
+            }
+            let digit_str = &s[start..i];
+            if let Ok(num) = digit_str.parse::<usize>() {
+                return Some((num, digit_str.len()));
+            } else {
+                return None;
+            }
+        } else {
+            i += 1;
+        }
+    }
+    None
+}
