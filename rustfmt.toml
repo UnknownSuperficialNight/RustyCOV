@@ -10,4 +10,4 @@ brace_style = "PreferSameLine"
 combine_control_expr = false
 control_brace_style = "AlwaysSameLine"
 use_small_heuristics = "Max"
-max_width = 100
+max_width = 150
