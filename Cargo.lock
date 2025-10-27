@@ -1129,7 +1129,6 @@ dependencies = [
  "thiserror 2.0.17",
  "ureq",
  "walkdir",
- "windows-sys 0.61.2",
  "xz2",
  "zip",
 ]
