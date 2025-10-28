@@ -50,7 +50,7 @@ fn main() {
                 Arg::new("jpeg_optimise")
                     .short('j')
                     .long("jpeg-optimise")
-                    .help("Optimise JPEG images with specified quality (0-100, default: 80)")
+                    .help("Optimise JPEG images with specified quality (0-100, recommended: 80)")
                     .value_name("JPEG_QUALITY_NUMBER")
                     .value_parser(value_parser!(u8)),
             )

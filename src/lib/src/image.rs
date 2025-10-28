@@ -32,7 +32,7 @@ pub(crate) fn convert_png_to_jpeg(
     // Decode PNG from memory
     let img = ImageReader::new(&mut *cursor).with_guessed_format()?.decode()?;
 
-    // Encode PNG image as JPEG with default quality (80) into a new Vec<u8>
+    // Encode PNG image as JPEG with recommended quality (80) into a new Vec<u8>
     // We just convert here, optimisation will be done in optimise_jpeg
     let mut jpeg_bytes = Vec::new();
     img.write_to(&mut Cursor::new(&mut jpeg_bytes), image::ImageFormat::Jpeg)?;
@@ -61,10 +61,7 @@ pub(crate) fn convert_png_to_jpeg(
 /// * `cursor` - A mutable cursor containing the JPEG image data.
 /// * `quality` - The quality of the output JPEG image (1-100).
 #[cfg(feature = "jpeg-opt")]
-pub(crate) fn optimise_jpeg(
-    cursor: &mut std::io::Cursor<Vec<u8>>,
-    quality: u8,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn optimise_jpeg(cursor: &mut std::io::Cursor<Vec<u8>>, quality: u8) -> Result<(), Box<dyn std::error::Error>> {
     use image::codecs::jpeg::JpegEncoder;
 
     cursor.set_position(0);
@@ -95,9 +92,7 @@ pub(crate) fn optimise_jpeg(
 ///
 /// * `cursor` - A mutable cursor containing the PNG image data.
 #[cfg(feature = "png-opt")]
-pub(crate) fn optimise_png(
-    cursor: &mut std::io::Cursor<Vec<u8>>,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn optimise_png(cursor: &mut std::io::Cursor<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>> {
     use oxipng::{Options as OxipngOptions, StripChunks, optimize_from_memory};
 
     // Get the PNG data from the cursor
