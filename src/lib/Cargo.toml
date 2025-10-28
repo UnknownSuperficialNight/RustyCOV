@@ -1,9 +1,9 @@
 [package]
 name = "rusty_cov"
-version = "0.0.1"
-authors = ["UnknownSuperficialNight"]
+version = "0.1.0"
 description = "A Rust crate for downloading and embedding cover art with image optimisation support"
 license.workspace = true
+authors.workspace = true
 edition.workspace = true
 
 [dependencies]

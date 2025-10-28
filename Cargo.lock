@@ -1116,7 +1116,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "rusty_cov"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "image",
  "indicatif",
@@ -1135,7 +1135,7 @@ dependencies = [
 
 [[package]]
 name = "rusty_cov_cli"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "clap",
  "rusty_cov",
