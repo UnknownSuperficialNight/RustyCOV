@@ -2,6 +2,9 @@
 
 A command-line tool for automatically finding and embedding album covers in audio files. This tool integrates with the COV website to discover covers, supports multiple file formats, and provides options for image optimisations.
 
+> [!WARNING]  
+> This tool can remove images from your music files, so backup anything you really care about or test on a small sample of files first.
+
 ## Showcase Album folder mode
 [![Watch the video](https://img.youtube.com/vi/JHLt1CdCWuk/maxresdefault.jpg)](https://youtu.be/JHLt1CdCWuk)
 
@@ -46,6 +49,10 @@ or to build and run immediately
 cargo run --release
 ```
 
+> [!NOTE]  
+> If the `-i` flag is not present, it will default to the current directory.
+
+
 ### External Dependencies (Automatically Handled/Installed)
-- [ffmpeg](https://ffmpeg.org) for fallback processing (Download implemented, but usage not yet implemented)
+- [ffmpeg](https://ffmpeg.org) for fallback processing (Download and dependency checking implemented, but usage not yet implemented)
 - [covit](https://covers.musichoarders.xyz) for cover discovery
